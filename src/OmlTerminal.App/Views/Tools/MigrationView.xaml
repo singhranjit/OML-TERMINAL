@@ -57,7 +57,9 @@
                     </StackPanel>
 
                     <TextBlock x:Name="SummaryText" Grid.Row="4" FontSize="12.5" Opacity="0.75" TextWrapping="Wrap" />
-                    <InfoBar x:Name="IssuesBar" Grid.Row="5" Severity="Warning" IsClosable="False" IsOpen="False" Title="Lines skipped (couldn't be parsed with confidence)" Message="" />
+                    <ScrollViewer Grid.Row="5" MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                        <InfoBar x:Name="IssuesBar" Severity="Warning" IsClosable="False" IsOpen="False" Title="Lines skipped (couldn't be parsed with confidence)" Message="" />
+                    </ScrollViewer>
                 </Grid>
             </Border>
 
@@ -115,7 +117,9 @@
                             </Button>
                         </StackPanel>
                     </Grid>
-                    <InfoBar x:Name="ReviewBar" Grid.Row="1" Severity="Informational" IsClosable="False" IsOpen="False" Title="Needs manual review - not migrated" Message="" />
+                    <ScrollViewer Grid.Row="1" MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                        <InfoBar x:Name="ReviewBar" Severity="Informational" IsClosable="False" IsOpen="False" Title="Needs manual review - not migrated" Message="" />
+                    </ScrollViewer>
                     <TextBox x:Name="OutputBox" Grid.Row="2" Style="{StaticResource MonoOutputStyle}"
                              PlaceholderText="Paste or pull a source config, click Parse, then Generate." />
                 </Grid>
