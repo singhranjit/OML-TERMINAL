@@ -1,0 +1,108 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.CliGuideView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="CLI Guide" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13"
+                       Text="Command reference with syntax and examples for every vendor OML Terminal supports. Search by task ('show bgp') or command. Copy, or insert straight into the active session." />
+        </StackPanel>
+
+        <!-- Vendor + search -->
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="14,10">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="VendorBox" Header="Vendor" HorizontalAlignment="Stretch" SelectionChanged="Vendor_SelectionChanged"
+                          AutomationProperties.Name="Vendor" />
+                <AutoSuggestBox x:Name="SearchBox" Grid.Column="1" Header="Search" QueryIcon="Find"
+                                PlaceholderText="e.g.  ip address   ·   show bgp   ·   save config" TextChanged="Search_TextChanged"
+                                VerticalAlignment="Bottom" />
+                <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                    <TextBlock Text="RESULTS" Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock x:Name="CountText" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="190" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Categories -->
+            <Border Style="{StaticResource ToolCardStyle}" Padding="6">
+                <Grid RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="CATEGORIES" Style="{StaticResource SectionLabelStyle}" Margin="8,6" />
+                    <ListView x:Name="CategoryList" Grid.Row="1" SelectionMode="Single" SelectionChanged="Category_SelectionChanged" />
+                </Grid>
+            </Border>
+
+            <!-- Commands -->
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}" Padding="0">
+                <ListView x:Name="CommandList" SelectionMode="None" Padding="6">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:CliRow">
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="8" Padding="14,10" Margin="2,3"
+                                    BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1">
+                                <Grid RowSpacing="5">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border CornerRadius="{StaticResource BadgeRadius}" Padding="6,2" VerticalAlignment="Center"
+                                                Background="{StaticResource BadgeBackgroundBrush}" BorderBrush="{StaticResource BadgeBorderBrush}" BorderThickness="1">
+                                            <TextBlock Text="{x:Bind Mode}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource OmlSkyBrush}" />
+                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Command}" FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                   FontWeight="SemiBold" Foreground="{StaticResource OmlSkyBrush}" IsTextSelectionEnabled="True"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                                            <Button Content="Copy" Padding="10,3" FontSize="12" Click="Copy_Click" Tag="{x:Bind}" AutomationProperties.Name="Copy command" />
+                                            <Button Content="Insert" Padding="10,3" FontSize="12" Click="Insert_Click" Tag="{x:Bind}"
+                                                    ToolTipService.ToolTip="Type into the active session (no Enter)" AutomationProperties.Name="Insert into session" />
+                                            <Button Content="Run" Padding="10,3" FontSize="12" Click="Run_Click" Tag="{x:Bind}"
+                                                    Style="{StaticResource OmlAccentButtonStyle}"
+                                                    ToolTipService.ToolTip="Send to the active session and press Enter" AutomationProperties.Name="Run in session" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Grid.Row="1" Text="{x:Bind Description}" TextWrapping="Wrap" Opacity="0.85" FontSize="13" />
+                                    <StackPanel Grid.Row="2" Spacing="2" Visibility="{x:Bind HasDetail}">
+                                        <TextBlock Text="{x:Bind SyntaxLine}" Visibility="{x:Bind HasSyntax}" FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="12" Opacity="0.6" IsTextSelectionEnabled="True" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind ExampleLine}" Visibility="{x:Bind HasExample}" FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="12" Foreground="{StaticResource OmlMintBrush}" IsTextSelectionEnabled="True" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

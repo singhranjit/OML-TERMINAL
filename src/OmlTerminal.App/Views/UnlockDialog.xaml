@@ -1,0 +1,15 @@
+<ContentDialog
+    x:Class="OmlTerminal.App.Views.UnlockDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Style="{StaticResource AppContentDialogStyle}"
+    Title="Unlock OML Terminal"
+    PrimaryButtonText="Unlock"
+    CloseButtonText="Exit"
+    DefaultButton="Primary">
+    <StackPanel Spacing="10" MinWidth="380">
+        <TextBlock Text="Enter your master password to decrypt saved credentials." Opacity="0.75" TextWrapping="Wrap" />
+        <PasswordBox x:Name="PasswordBox" Header="Master password" />
+        <InfoBar x:Name="ErrorBar" Severity="Error" IsOpen="False" IsClosable="False" Title="Wrong master password" />
+    </StackPanel>
+</ContentDialog>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OmlTerminal.App/OmlTerminal.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/OmlTerminal.Core/OmlTerminal.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OmlTerminal.Core.Tests/OmlTerminal.Core.Tests.csproj" />
+  </Folder>
+</Solution>

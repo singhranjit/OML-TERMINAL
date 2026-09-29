@@ -1,0 +1,443 @@
+<Window
+    x:Class="OmlTerminal.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:OmlTerminal.Core.Models"
+    xmlns:vm="using:OmlTerminal.App.ViewModels"
+    xmlns:views="using:OmlTerminal.App.Views"
+    xmlns:tools="using:OmlTerminal.App.Views.Tools"
+    Title="OML Terminal">
+
+    <Grid x:Name="RootGrid" Background="{StaticResource AppBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Modifiers="Control" Key="K" Invoked="PaletteAccelerator_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="FindAccelerator_Invoked" />
+        </Grid.KeyboardAccelerators>
+
+        <!-- Custom title bar: brand + menu, empty middle is the drag region -->
+        <Grid Grid.Row="0" x:Name="TitleBarGrid" Padding="14,0,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="140" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Margin="0,0,14,0">
+                <Image Source="ms-appx:///Assets/Logo.png" Width="26" Height="26" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="OML" FontSize="16" FontWeight="Bold" Foreground="{StaticResource OmlOrangeBrush}" />
+                    <TextBlock Text=" TERMINAL" FontSize="16" FontWeight="SemiBold" CharacterSpacing="120"
+                               Foreground="{StaticResource OmlSkyBrush}" />
+                </StackPanel>
+            </StackPanel>
+
+            <MenuBar x:Name="MainMenu" Grid.Column="1" VerticalAlignment="Center" Background="Transparent">
+                <MenuBarItem Title="File">
+                    <MenuFlyoutItem Text="New Session" Click="NewSession_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control" Key="N" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="Connect to OML Node..." Click="OmlNode_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="O" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="Import from PuTTY..." Click="ImportPutty_Click" />
+                    <MenuFlyoutItem Text="Import from MobaXterm..." Click="ImportMobaXterm_Click" />
+                    <MenuFlyoutItem Text="Import from SecureCRT..." Click="ImportSecureCrt_Click" />
+                    <MenuFlyoutItem Text="Import Sessions (CSV/JSON)..." Click="ImportSessions_Click" />
+                    <MenuFlyoutItem Text="Import Credentials..." Click="ImportCredentials_Click" />
+                    <MenuFlyoutItem Text="Export Sessions..." Click="ExportSessions_Click" />
+                    <MenuFlyoutItem Text="Export Shareable Config..." Click="ShareConfig_Click" />
+                    <MenuFlyoutItem Text="Import Workflows..." Click="ImportWorkflows_Click" />
+                    <MenuFlyoutItem Text="Export Workflows..." Click="ExportWorkflows_Click" />
+                    <MenuFlyoutItem Text="Settings..." Click="Settings_Click" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="Exit" Click="Exit_Click" />
+                </MenuBarItem>
+                <MenuBarItem Title="Session">
+                    <MenuFlyoutItem Text="Close Tab" Click="CloseTab_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control" Key="W" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem x:Name="RecordItem" Text="Start Recording Macro" Click="Record_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="R" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSubItem x:Name="PlayMacroMenu" Text="Play Macro" />
+                    <MenuFlyoutSubItem x:Name="DeleteMacroMenu" Text="Delete Macro" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem x:Name="LogItem" Text="Start Logging to File" Click="Log_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="L" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="Split Right..." Click="SplitRight_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="D" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="Split Down..." Click="SplitDown_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="E" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <ToggleMenuFlyoutItem x:Name="SyncItem" Text="Synchronize Typing in Split" Click="Sync_Click">
+                        <ToggleMenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="I" />
+                        </ToggleMenuFlyoutItem.KeyboardAccelerators>
+                    </ToggleMenuFlyoutItem>
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="Multi-Execution Bar" Click="MultiExec_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="M" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="SSH Tunnels..." Click="Tunnels_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="T" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="SFTP Browser..." Click="SftpBrowser_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="F" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="Voice Command..." Click="VoiceCommand_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift" Key="V" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem Text="Save Scrollback Snapshot..." Click="SaveScrollback_Click" />
+                    <MenuFlyoutItem Text="Troubleshooting Workflows..." Click="Workflows_Click" />
+                </MenuBarItem>
+                <MenuBarItem Title="Tools" x:Name="ToolsMenu">
+                    <MenuFlyoutSeparator x:Name="ToolsMenuSeparator" />
+                    <MenuFlyoutItem x:Name="XServerMenuItem" Text="Start X Server" Click="XServer_Click" />
+                </MenuBarItem>
+                <MenuBarItem Title="View">
+                    <MenuFlyoutItem x:Name="ZoomInItem" Text="Zoom In" Click="ZoomIn_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control" Key="Add" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem x:Name="ZoomOutItem" Text="Zoom Out" Click="ZoomOut_Click">
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control" Key="Subtract" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem x:Name="ZoomResetItem" Text="Reset Zoom" Click="ZoomReset_Click" />
+                    <MenuFlyoutSeparator />
+                    <ToggleMenuFlyoutItem x:Name="HighlightItem" Text="Keyword Highlighting" Click="Highlight_Click" />
+                </MenuBarItem>
+                <MenuBarItem Title="Help">
+                    <MenuFlyoutItem Text="Register oml-terminal:// links" Click="RegisterLinks_Click" />
+                    <MenuFlyoutItem Text="About" Click="About_Click" />
+                </MenuBarItem>
+            </MenuBar>
+
+            <Border Grid.Column="2" x:Name="DragRegion" Background="Transparent" />
+
+            <Button Grid.Column="3" x:Name="XServerButton" Click="XServer_Click" VerticalAlignment="Center" Margin="0,0,8,0"
+                    Padding="10,4" CornerRadius="12" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource HairlineBrush}"
+                    ToolTipService.ToolTip="X server for X11-forwarded apps - click to start/stop">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Ellipse x:Name="XServerDot" Width="8" Height="8" Fill="{StaticResource StatusIdleBrush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="XServerText" Text="X server" FontSize="12" />
+                </StackPanel>
+            </Button>
+            <Border Grid.Column="0" Grid.ColumnSpan="5" Height="1" VerticalAlignment="Bottom" Background="{StaticResource HeaderGlowBrush}" Opacity="0.7" />
+        </Grid>
+
+        <!-- Toolbar ribbon: buttons are added in code (BuildToolbar) so each one is defined once with its action. -->
+        <Border Grid.Row="1" Background="{StaticResource ToolbarBrush}" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1"
+                Padding="8,4" Margin="0,0,0,10">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Auto">
+                <StackPanel x:Name="Toolbar" Orientation="Horizontal" Height="54" />
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="2" Padding="10,0,10,10" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="290" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Sidebar -->
+            <Border Grid.Column="0" CornerRadius="{StaticResource CardRadius}" Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource GlowBorderBrush}" BorderThickness="1" Padding="12">
+              <Grid RowSpacing="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <SelectorBar x:Name="SidebarBar" SelectionChanged="SidebarBar_SelectionChanged">
+                    <SelectorBarItem Text="Sessions" IsSelected="True">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE8A9;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem Text="Tools">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE90F;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                </SelectorBar>
+
+                <ListView x:Name="ToolsList" Grid.Row="1" Visibility="Collapsed" SelectionMode="None" IsItemClickEnabled="True"
+                          ItemClick="ToolsList_ItemClick">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="tools:ToolDescriptor">
+                            <Grid ColumnSpacing="12" Padding="4,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="34" Height="34" CornerRadius="9" Background="{StaticResource BadgeBackgroundBrush}"
+                                        BorderBrush="{StaticResource BadgeBorderBrush}" BorderThickness="1">
+                                    <FontIcon Glyph="{x:Bind Glyph}" FontSize="15" Foreground="{StaticResource OmlSkyBrush}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{x:Bind Subtitle}" FontSize="11" Opacity="0.55" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <Grid x:Name="SessionsPanel" Grid.Row="1" RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" HorizontalAlignment="Stretch" Height="40" Click="NewSession_Click"
+                                Style="{StaticResource AccentButtonStyle}" CornerRadius="{StaticResource CardRadius}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                <TextBlock Text="New Session" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="1" Width="40" Height="40" Click="NewFolder_Click"
+                                ToolTipService.ToolTip="New folder" CornerRadius="{StaticResource CardRadius}">
+                            <FontIcon Glyph="&#xE8F4;" FontSize="14" />
+                        </Button>
+                    </Grid>
+
+                    <Button Grid.Row="1" HorizontalAlignment="Stretch" Height="40" Click="OmlNode_Click"
+                            Style="{StaticResource OmlAccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE774;" FontSize="14" />
+                            <TextBlock Text="Connect OML Node" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+
+                    <Grid Grid.Row="2" ColumnSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <AutoSuggestBox Grid.Column="0" x:Name="FilterBox" PlaceholderText="Search sessions"
+                                        QueryIcon="Find" TextChanged="FilterBox_TextChanged" />
+                        <Button Grid.Column="1" Width="34" Height="34" Padding="0" Click="ExpandAll_Click"
+                                ToolTipService.ToolTip="Expand all folders">
+                            <FontIcon Glyph="&#xE70D;" FontSize="12" />
+                        </Button>
+                        <Button Grid.Column="2" Width="34" Height="34" Padding="0" Click="CollapseAll_Click"
+                                ToolTipService.ToolTip="Collapse all folders">
+                            <FontIcon Glyph="&#xE70E;" FontSize="12" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Each row's UI is built directly in code-behind (see BuildFolderRow/BuildSessionRow) and
+                         handed to TreeViewNode.Content as a plain UIElement. For a manually-populated node
+                         (RootNodes, not ItemsSource), each container's DataContext is the TreeViewNode itself,
+                         not its .Content - x:Bind tried to cast that TreeViewNode straight to a CLR type and
+                         crashed the process, and binding straight to a property path (assuming .Content was
+                         the DataContext) silently failed to resolve. Binding through "Content" here targets
+                         the TreeViewNode's real Content property and hosts the prebuilt Grid directly.
+
+                         Drag-and-drop is NOT TreeView's native CanDragItems/AllowDrop (that proved unreliable
+                         for custom row content - see Row_PointerPressed for the manual replacement). -->
+                    <TreeView Grid.Row="3" x:Name="SessionTree" SelectionMode="Single"
+                              Expanding="SessionTree_Expanding" Collapsed="SessionTree_Collapsed"
+                              ItemInvoked="SessionTree_ItemInvoked" PreviewKeyDown="SessionTree_KeyDown">
+                        <TreeView.ItemTemplate>
+                            <DataTemplate>
+                                <ContentPresenter Content="{Binding Content}" />
+                            </DataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </Grid>
+              </Grid>
+            </Border>
+
+            <!-- Tabs -->
+            <Border Grid.Column="1" CornerRadius="{StaticResource CardRadius}" Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource GlowBorderBrush}" BorderThickness="1" Padding="6,6,6,6">
+              <Grid>
+                <TabView x:Name="Tabs" IsAddTabButtonVisible="False" TabWidthMode="SizeToContent" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                         TabCloseRequested="Tabs_TabCloseRequested" SelectionChanged="Tabs_SelectionChanged">
+                    <TabViewItem x:Name="HomeTab" Header="Home" IsClosable="False">
+                        <TabViewItem.IconSource>
+                            <FontIconSource Glyph="&#xE80F;" />
+                        </TabViewItem.IconSource>
+                        <views:HomeView x:Name="Home" />
+                    </TabViewItem>
+                </TabView>
+
+                <!-- Find in terminal (Ctrl+F): docked top-right over the active tab, no scrim - the terminal
+                     stays fully interactive/visible behind it, unlike the command palette's modal overlay. -->
+                <Border x:Name="FindBar" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,8,8,0" CornerRadius="{StaticResource CardRadius}" Background="{StaticResource PanelBrush}"
+                        BorderBrush="{StaticResource GlowBorderBrush}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal" Padding="10,6" Spacing="6">
+                        <TextBox x:Name="FindQuery" Width="200" PlaceholderText="Find in this session..."
+                                 TextChanged="FindQuery_TextChanged" PreviewKeyDown="FindQuery_KeyDown" />
+                        <TextBlock x:Name="FindCount" FontSize="11" Opacity="0.65" VerticalAlignment="Center" MinWidth="60" />
+                        <Button Click="FindPrev_Click" ToolTipService.ToolTip="Previous match (Shift+Enter)">
+                            <FontIcon Glyph="&#xE96D;" FontSize="11" />
+                        </Button>
+                        <Button Click="FindNext_Click" ToolTipService.ToolTip="Next match (Enter)">
+                            <FontIcon Glyph="&#xE96E;" FontSize="11" />
+                        </Button>
+                        <Button Click="FindClose_Click" ToolTipService.ToolTip="Close (Esc)">
+                            <FontIcon Glyph="&#xE711;" FontSize="11" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Multi-execution bar -->
+        <Border Grid.Row="3" x:Name="MultiExecBar" Visibility="Collapsed" Margin="10,0,10,10" Padding="12,8"
+                CornerRadius="{StaticResource CardRadius}" Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource OmlOrangeBorderBrush}" BorderThickness="1">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="MULTI-EXEC" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center" />
+                <TextBox x:Name="MultiExecBox" Grid.Column="1" FontFamily="{StaticResource MonoFont}"
+                         PlaceholderText="Command to send to every connected tab, then Enter" KeyDown="MultiExecBox_KeyDown" />
+                <Button x:Name="MultiExecTargetsButton" Grid.Column="2" Click="MultiExecTargets_Click" ToolTipService.ToolTip="Choose which tabs to send to">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE71D;" FontSize="12" />
+                        <TextBlock x:Name="MultiExecTargetsLabel" Text="All tabs" FontSize="12" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="3" Content="Send" Style="{StaticResource AccentButtonStyle}" Click="MultiExecSend_Click" />
+                <TextBlock x:Name="MultiExecCount" Grid.Column="4" VerticalAlignment="Center" Opacity="0.7" FontSize="12" />
+                <Button Grid.Column="5" Click="MultiExec_Click" ToolTipService.ToolTip="Hide">
+                    <FontIcon Glyph="&#xE711;" FontSize="12" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Status bar -->
+        <Border Grid.Row="4" Background="{StaticResource StatusBarBrush}" BorderBrush="{StaticResource HairlineBrush}"
+                BorderThickness="0,1,0,0" Padding="16,4">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="StatusDot" Grid.Column="0" Width="8" Height="8" Fill="{StaticResource StatusIdleBrush}" VerticalAlignment="Center" />
+                <TextBlock x:Name="StatusProtocol" Grid.Column="1" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource OmlOrangeBrush}" Text="Ready" />
+                <TextBlock x:Name="StatusHost" Grid.Column="2" FontSize="12" Opacity="0.85" FontFamily="{StaticResource MonoFont}" />
+                <TextBlock x:Name="StatusSize" Grid.Column="3" FontSize="12" Opacity="0.85" FontFamily="{StaticResource MonoFont}" />
+                <TextBlock x:Name="StatusTabs" Grid.Column="4" FontSize="12" Opacity="0.55" FontFamily="{StaticResource MonoFont}" />
+            </Grid>
+        </Border>
+
+        <!-- Command palette (Ctrl+K): a full-window scrim + centered card, not a ContentDialog, so it opens
+             instantly and doesn't fight with ShowDialogAsync's single-dialog-at-a-time guard. -->
+        <Border x:Name="PaletteScrim" Grid.Row="0" Grid.RowSpan="5" Visibility="Collapsed"
+                Background="#99000000" Tapped="PaletteScrim_Tapped">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,90,0,0"
+                    Width="600" MaxHeight="460" CornerRadius="{StaticResource CardRadius}"
+                    Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource GlowBorderBrush}" BorderThickness="1"
+                    Tapped="PaletteCard_Tapped">
+                <Grid RowSpacing="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <TextBox x:Name="PaletteQuery" BorderThickness="0" Background="Transparent"
+                                 FontSize="16" Padding="16,14" PlaceholderText="Type a command or jump to a session..."
+                                 TextChanged="PaletteQuery_TextChanged" PreviewKeyDown="PaletteQuery_KeyDown" />
+                        <Border VerticalAlignment="Bottom" Height="1" Background="{StaticResource HairlineBrush}" />
+                    </Grid>
+                    <ListView x:Name="PaletteResults" Grid.Row="1" SelectionMode="Single" Padding="6"
+                              DoubleTapped="PaletteResults_DoubleTapped">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PaletteItem">
+                                <Grid ColumnSpacing="10" Padding="8,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Style="{StaticResource BadgeBorderStyle}" Padding="6,2"
+                                            HorizontalAlignment="Left" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind Badge}" Style="{StaticResource BadgeTextStyle}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Subtitle}" FontSize="11" Opacity="0.55" TextTrimming="CharacterEllipsis"
+                                                   FontFamily="{StaticResource MonoFont}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Shortcut}" FontSize="11" Opacity="0.5"
+                                               VerticalAlignment="Center" FontFamily="{StaticResource MonoFont}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+        </Border>
+
+        <!-- Sidebar tree drag ghost: WinUI's native TreeView drag-and-drop (OLE-based) proved unreliable for
+             custom row content - flaky pickup, no visual feedback, unreliable drops. Session/folder rows drive
+             this manually via Pointer events instead (see Row_PointerPressed and friends); this floating pill
+             just follows the cursor while a drag is in progress. IsHitTestVisible=False so it never steals
+             the pointer events that are driving it. -->
+        <Canvas Grid.Row="0" Grid.RowSpan="5" IsHitTestVisible="False">
+            <Border x:Name="DragGhost" Visibility="Collapsed" Padding="10,6" CornerRadius="6"
+                    Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource GlowBorderBrush}" BorderThickness="1">
+                <TextBlock x:Name="DragGhostText" FontSize="13" />
+            </Border>
+        </Canvas>
+    </Grid>
+</Window>

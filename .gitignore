@@ -1,0 +1,22 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+publish/
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+
+# Installer output
+installer/*.exe
+
+# Test results
+[Tt]est[Rr]esult*/
+
+# OS cruft
+Thumbs.db
+.DS_Store
+
+# Scratch/local-only work (not part of the app itself)
+scratch/

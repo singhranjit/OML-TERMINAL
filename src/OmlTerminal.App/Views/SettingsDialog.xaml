@@ -1,0 +1,50 @@
+<ContentDialog
+    x:Class="OmlTerminal.App.Views.SettingsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Style="{StaticResource AppContentDialogStyle}"
+    Title="Settings"
+    PrimaryButtonText="Save"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary">
+    <ScrollViewer MaxHeight="560">
+        <StackPanel Spacing="10" MinWidth="400">
+            <TextBox x:Name="FontBox" Header="Terminal font" PlaceholderText="Cascadia Mono" />
+            <NumberBox x:Name="SizeBox" Header="Font size" Minimum="8" Maximum="40" SpinButtonPlacementMode="Inline" />
+            <NumberBox x:Name="ScrollbackBox" Header="Scrollback lines (applies to new tabs)" Minimum="0" Maximum="200000" SpinButtonPlacementMode="Hidden" />
+            <TextBox x:Name="PlinkBox" Header="plink.exe path (blank = auto-detect)" PlaceholderText="C:\Program Files\PuTTY\plink.exe" />
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="LogDirBox" Header="Session log folder" />
+                <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Browse..." Click="BrowseLogDir_Click" />
+            </Grid>
+            <CheckBox x:Name="AlwaysLogBox" Content="Automatically log every new session to a file" />
+            <CheckBox x:Name="AutoReconnectBox" Content="Automatically reconnect SSH/Telnet sessions that drop unexpectedly" />
+            <CheckBox x:Name="RestoreWorkspaceBox" Content="Restore terminal sessions from the last workspace on launch" />
+
+            <TextBlock Text="X SERVER (X11 FORWARDING)" Style="{StaticResource SectionLabelStyle}" Margin="0,10,0,0" />
+            <TextBlock x:Name="XServerHint" Opacity="0.65" TextWrapping="Wrap" FontSize="12" />
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="XServerPathBox" Header="X server executable (blank = auto-detect)" PlaceholderText="C:\Program Files\VcXsrv\vcxsrv.exe" />
+                <NumberBox x:Name="XDisplayBox" Grid.Column="1" Header="Display" Minimum="0" Maximum="99" SpinButtonPlacementMode="Hidden" />
+            </Grid>
+            <CheckBox x:Name="AutoStartXBox" Content="Start the X server when OML Terminal starts" />
+
+            <TextBlock x:Name="MasterTitle" Text="MASTER PASSWORD" FontSize="11" FontWeight="Bold" CharacterSpacing="150"
+                       Foreground="{StaticResource OmlOrangeBrush}" Margin="0,10,0,0" />
+            <TextBlock x:Name="MasterHint" Opacity="0.65" TextWrapping="Wrap" FontSize="12" />
+            <PasswordBox x:Name="NewMasterBox" Header="New master password (min 6 characters)" />
+            <PasswordBox x:Name="ConfirmMasterBox" Header="Confirm master password" />
+            <CheckBox x:Name="RemoveMasterBox" Content="Remove master password (store credentials unencrypted)" Visibility="Collapsed" />
+            <InfoBar x:Name="ErrorBar" Severity="Error" IsOpen="False" IsClosable="False" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

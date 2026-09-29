@@ -1,0 +1,89 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.DnsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="DNS Lookup" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13"
+                       Text="dig for Windows: query one resolver directly and see every section with TTLs. Type an IP with PTR for reverse lookups. Compare resolvers to spot split-horizon or stale records." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="NameBox" Header="Name or IP" PlaceholderText="example.com" FontFamily="{StaticResource MonoFont}" KeyDown="NameBox_KeyDown" />
+                <ComboBox x:Name="TypeBox" Grid.Column="1" Header="Type" HorizontalAlignment="Stretch" />
+                <ComboBox x:Name="ServerBox" Grid.Column="2" Header="Resolver" HorizontalAlignment="Stretch" IsEditable="True" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                    <Button Style="{StaticResource AccentButtonStyle}" Click="Query_Click" MinWidth="90" AutomationProperties.Name="Query">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE721;" FontSize="12" />
+                            <TextBlock Text="Query" />
+                        </StackPanel>
+                    </Button>
+                    <Button Content="Compare resolvers" Click="Compare_Click" ToolTipService.ToolTip="Ask system DNS, 1.1.1.1, 8.8.8.8 and 9.9.9.9 at once" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TextBlock x:Name="StatusText" Grid.Row="2" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.85" />
+
+        <Border Grid.Row="3" Style="{StaticResource ToolCardStyle}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Padding="16,10" ColumnSpacing="12" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="3*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="SECTION" Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock Grid.Column="1" Text="NAME" Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock Grid.Column="2" Text="TYPE" Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock Grid.Column="3" Text="TTL" Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock Grid.Column="4" Text="DATA" Style="{StaticResource SectionLabelStyle}" />
+                </Grid>
+                <ListView x:Name="Results" Grid.Row="1" SelectionMode="Extended" Padding="4">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:DnsRow">
+                            <Grid ColumnSpacing="12" Padding="8,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="3*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Bind Section}" Foreground="{x:Bind SectionBrush}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" TextTrimming="CharacterEllipsis" IsTextSelectionEnabled="True" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind Type}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="3" Text="{x:Bind Ttl}" FontFamily="{StaticResource MonoFont}" Opacity="0.7" />
+                                <TextBlock Grid.Column="4" Text="{x:Bind Data}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

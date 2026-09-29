@@ -1,0 +1,92 @@
+<ContentDialog
+    x:Class="OmlTerminal.App.Views.Tools.ScheduleJobDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:OmlTerminal.Core.Models"
+    Style="{StaticResource AppContentDialogStyle}"
+    PrimaryButtonText="Save"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary"
+    PrimaryButtonClick="Dialog_PrimaryButtonClick">
+
+    <Grid MinWidth="580" MinHeight="420" RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="NameBox" Header="Name" PlaceholderText="Nightly config backup" />
+            <NumberBox x:Name="IntervalBox" Grid.Column="1" Header="Every (minutes)" Value="60" Minimum="1" Maximum="10080" SpinButtonPlacementMode="Hidden" />
+            <CheckBox x:Name="EnabledBox" Grid.Column="2" Content="Enabled" IsChecked="True" VerticalAlignment="Bottom" />
+        </Grid>
+
+        <ComboBox x:Name="PresetBox" Grid.Row="1" Header="Vendor / command set" HorizontalAlignment="Stretch" SelectionChanged="PresetBox_SelectionChanged" />
+
+        <Grid Grid.Row="2" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="DEVICES" Style="{StaticResource SectionLabelStyle}" />
+                    <ListView x:Name="DeviceList" Grid.Row="1" SelectionMode="Multiple">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SessionProfile">
+                                <StackPanel Padding="0,3">
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" FontSize="13" />
+                                    <TextBlock Text="{x:Bind Host}" FontSize="11" Opacity="0.55" FontFamily="{StaticResource MonoFont}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid x:Name="CustomPanel" Visibility="Collapsed" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ComboBox x:Name="CustomMode" Header="Mode" HorizontalAlignment="Stretch" SelectedIndex="1">
+                        <ComboBoxItem Content="Exec channel" />
+                        <ComboBoxItem Content="Interactive shell" />
+                    </ComboBox>
+                    <TextBox x:Name="CustomCommands" Grid.Row="1" Header="Commands (one per line; the last one's output is saved)"
+                             Style="{StaticResource MonoInputStyle}" Height="80" AcceptsReturn="True" Text="terminal length 0&#x0a;show running-config" />
+                </Grid>
+                <TextBlock x:Name="PresetHint" Grid.Row="1" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.65" TextWrapping="Wrap" />
+                <Grid Grid.Row="2" ColumnSpacing="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="RootDirectoryBox" Header="Save backups to (blank = default backup folder)" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                    <Button Grid.Column="1" VerticalAlignment="Bottom" Click="Browse_Click" ToolTipService.ToolTip="Choose folder" AutomationProperties.Name="Choose folder">
+                        <FontIcon Glyph="&#xE8DA;" FontSize="12" />
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <TextBlock x:Name="ErrorText" Grid.Row="3" Foreground="{StaticResource OmlRoseBrush}" FontSize="12" TextWrapping="Wrap" />
+    </Grid>
+</ContentDialog>

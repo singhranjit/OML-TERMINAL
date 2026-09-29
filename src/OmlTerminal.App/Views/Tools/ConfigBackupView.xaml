@@ -1,0 +1,188 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.ConfigBackupView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:OmlTerminal.Core.Models"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Config Backup" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Pick devices from your saved SSH sessions, choose the vendor, and pull running configs in parallel. Each run is saved with a timestamp; changes since the last backup are flagged and diffable." />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Devices -->
+            <Border Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="DEVICES" Style="{StaticResource SectionLabelStyle}" />
+                    <AutoSuggestBox x:Name="DeviceFilter" Grid.Row="1" PlaceholderText="Filter by name, folder, host" QueryIcon="Filter"
+                                    TextChanged="DeviceFilter_TextChanged" />
+                    <ListView x:Name="DeviceList" Grid.Row="2" SelectionMode="Multiple" SelectionChanged="DeviceList_SelectionChanged">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SessionProfile">
+                                <StackPanel Padding="0,4">
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{x:Bind Host}" FontSize="11" Opacity="0.55" FontFamily="{StaticResource MonoFont}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Grid Grid.Row="3" ColumnSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="SelectedText" VerticalAlignment="Center" FontSize="12" Opacity="0.7" />
+                        <Button Grid.Column="1" Content="All" Click="SelectAll_Click" Padding="10,3" />
+                        <Button Grid.Column="2" Content="None" Click="SelectNone_Click" Padding="10,3" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1" RowSpacing="14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Job -->
+                <Border Style="{StaticResource ToolCardStyle}">
+                    <Grid ColumnSpacing="10" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ComboBox x:Name="PresetBox" Header="Vendor / command set" HorizontalAlignment="Stretch" SelectionChanged="PresetBox_SelectionChanged" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                            <NumberBox x:Name="ParallelBox" Header="Parallel" Value="5" Minimum="1" Maximum="32" Width="80" SpinButtonPlacementMode="Hidden" />
+                            <Button x:Name="RunButton" Style="{StaticResource AccentButtonStyle}" Click="Run_Click" VerticalAlignment="Bottom" MinWidth="130" AutomationProperties.Name="Back up now">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE896;" FontSize="12" />
+                                    <TextBlock Text="Back up now" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="CancelButton" Click="Cancel_Click" IsEnabled="False" VerticalAlignment="Bottom" ToolTipService.ToolTip="Cancel" AutomationProperties.Name="Cancel">
+                                <FontIcon Glyph="&#xE711;" FontSize="12" />
+                            </Button>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="FolderBox" Header="Save backups to" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                            <Button Grid.Column="1" VerticalAlignment="Bottom" Click="Browse_Click" ToolTipService.ToolTip="Choose folder" AutomationProperties.Name="Choose folder">
+                                <FontIcon Glyph="&#xE8DA;" FontSize="12" />
+                            </Button>
+                            <Button Grid.Column="2" VerticalAlignment="Bottom" Click="OpenFolder_Click" ToolTipService.ToolTip="Open in Explorer" AutomationProperties.Name="Open in Explorer">
+                                <FontIcon Glyph="&#xE838;" FontSize="12" />
+                            </Button>
+                        </Grid>
+
+                        <Grid x:Name="CustomPanel" Grid.Row="2" Grid.ColumnSpan="2" ColumnSpacing="10" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CustomCommands" Header="Commands (one per line; the last one's output is saved)" Style="{StaticResource MonoInputStyle}"
+                                     Height="80" AcceptsReturn="True" Text="terminal length 0&#x0a;show running-config" />
+                            <ComboBox x:Name="CustomMode" Grid.Column="1" Header="Mode" HorizontalAlignment="Stretch" SelectedIndex="1">
+                                <ComboBoxItem Content="Exec channel" />
+                                <ComboBoxItem Content="Interactive shell" />
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock x:Name="PresetHint" Grid.Row="2" Grid.ColumnSpan="2" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.65" />
+                    </Grid>
+                </Border>
+
+                <!-- Results -->
+                <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Padding="16,10" ColumnSpacing="12" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="3*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="DEVICE" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="2" Text="LINES" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="3" x:Name="ResultHeader" Text="RESULT" Style="{StaticResource SectionLabelStyle}" />
+                        </Grid>
+                        <ListView x:Name="ResultList" Grid.Row="1" SelectionMode="Single" SelectionChanged="ResultList_SelectionChanged" Padding="4">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:BackupRow">
+                                    <Grid ColumnSpacing="12" Padding="8,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24" />
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="3*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Glyph="{x:Bind Glyph, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" FontSize="14" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind Host}" FontSize="11" Opacity="0.55" FontFamily="{StaticResource MonoFont}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="{x:Bind Lines, Mode=OneWay}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind Message, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12.5" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+
+                <!-- Preview / diff -->
+                <Border Grid.Row="2" Style="{StaticResource ToolCardStyle}">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <SelectorBar x:Name="PreviewBar" SelectionChanged="PreviewBar_SelectionChanged">
+                                <SelectorBarItem Text="Changes vs previous" IsSelected="True" />
+                                <SelectorBarItem Text="Full config" />
+                            </SelectorBar>
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Content="Show file" Click="ShowFile_Click" />
+                        </Grid>
+                        <TextBox x:Name="PreviewBox" Grid.Row="1" Style="{StaticResource MonoOutputStyle}"
+                                 PlaceholderText="Select a backed-up device to see what changed." />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

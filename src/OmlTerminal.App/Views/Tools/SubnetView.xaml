@@ -1,0 +1,65 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.SubnetView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="24,20" Spacing="14">
+            <StackPanel Spacing="2">
+                <TextBlock Text="Subnet Calculator" Style="{StaticResource ToolTitleStyle}" />
+                <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13"
+                           Text="Accepts 10.1.2.3/24, 10.1.2.3 255.255.255.0, Cisco wildcard masks (0.0.0.255) and IPv6. Results update as you type." />
+            </StackPanel>
+
+            <Border Style="{StaticResource ToolCardStyle}">
+                <StackPanel Spacing="14">
+                    <TextBox x:Name="InputBox" Header="Address / prefix" Text="192.168.10.77/26" FontFamily="{StaticResource MonoFont}"
+                             FontSize="18" TextChanged="InputBox_TextChanged" />
+                    <InfoBar x:Name="ErrorBar" Severity="Error" IsClosable="False" IsOpen="False" />
+                    <Grid x:Name="ResultGrid" ColumnSpacing="24" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="SPLIT INTO SUBNETS" Style="{StaticResource SectionLabelStyle}" />
+                        <NumberBox x:Name="SplitBox" Header="New prefix length" Value="28" Minimum="1" Maximum="32"
+                                   SpinButtonPlacementMode="Inline" ValueChanged="SplitBox_ValueChanged" />
+                        <TextBox x:Name="SplitOutput" Style="{StaticResource MonoOutputStyle}" Height="260" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="RANGE → CIDR" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBox x:Name="RangeBox" Header="Start - end" Text="10.0.0.5-10.0.0.20" FontFamily="{StaticResource MonoFont}" TextChanged="RangeBox_TextChanged" />
+                        <TextBox x:Name="RangeOutput" Style="{StaticResource MonoOutputStyle}" Height="260" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="SUMMARISE ROUTES" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBox x:Name="SummaryInput" Header="Prefixes (one per line)" Style="{StaticResource MonoInputStyle}" Height="120"
+                                 AcceptsReturn="True" Text="10.1.0.0/24&#x0a;10.1.1.0/24&#x0a;10.1.2.0/23" TextChanged="SummaryInput_TextChanged" />
+                        <TextBox x:Name="SummaryOutput" Style="{StaticResource MonoOutputStyle}" Height="136" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

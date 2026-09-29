@@ -1,0 +1,38 @@
+<ContentDialog
+    x:Class="OmlTerminal.App.Views.OmlNodeDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Style="{StaticResource AppContentDialogStyle}"
+    Title="Connect to an OML node"
+    PrimaryButtonText="Connect"
+    SecondaryButtonText="Save to sidebar"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary"
+    IsPrimaryButtonEnabled="False"
+    IsSecondaryButtonEnabled="False">
+
+    <StackPanel Spacing="12" MinWidth="460">
+        <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                   Text="Paste the oml-terminal:// link from your OML lab. Nothing connects until you confirm the details below." />
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="LinkBox" PlaceholderText="oml-terminal://connect?data=..." AcceptsReturn="False"
+                     FontFamily="{StaticResource MonoFont}" TextChanged="LinkBox_TextChanged" />
+            <Button Grid.Column="1" Content="Paste" Click="Paste_Click" />
+        </Grid>
+
+        <InfoBar x:Name="ErrorBar" Severity="Error" IsOpen="False" IsClosable="False" Title="Link not usable" />
+
+        <Border x:Name="SummaryCard" Visibility="Collapsed" CornerRadius="10" Padding="16"
+                Background="{StaticResource CardBrush}" BorderBrush="{StaticResource OmlSkyBrush}" BorderThickness="1">
+            <StackPanel Spacing="4">
+                <TextBlock x:Name="SummaryTitle" FontSize="18" FontWeight="SemiBold" />
+                <TextBlock x:Name="SummaryTarget" FontFamily="{StaticResource MonoFont}" Opacity="0.85" />
+                <TextBlock x:Name="SummarySource" Opacity="0.6" FontSize="12" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</ContentDialog>

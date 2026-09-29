@@ -1,0 +1,198 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.FirewallPolicyView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Firewall Policy Builder" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Fill the sample sheet in Excel - one rule per row with interfaces, source, destination and ports - then open it here. Objects and policies are generated for the firewall you pick, with a rollback script. Nothing leaves this PC." />
+        </StackPanel>
+
+        <!-- Vendor + sheet file -->
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="14,10">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="VendorBox" MinWidth="260" VerticalAlignment="Center" SelectionChanged="Vendor_SelectionChanged"
+                          AutomationProperties.Name="Firewall vendor" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Click="Sample_Click" AutomationProperties.Name="Get sample sheet"
+                            ToolTipService.ToolTip="Save the sample CSV and open it in Excel">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE896;" FontSize="12" />
+                            <TextBlock Text="Get sample sheet..." />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource AccentButtonStyle}" Click="Open_Click" AutomationProperties.Name="Open sheet"
+                            ToolTipService.ToolTip="Load a filled-in sheet (.csv, or tab-separated .txt)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE8E5;" FontSize="12" />
+                            <TextBlock Text="Open sheet..." />
+                        </StackPanel>
+                    </Button>
+                    <Button Click="LoadExample_Click" Content="Try example" AutomationProperties.Name="Try example" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <TextBlock x:Name="FileText" FontFamily="{StaticResource MonoFont}" FontSize="12" TextTrimming="CharacterEllipsis"
+                               Text="No sheet loaded - paste CSV below, or open a file" />
+                    <TextBlock x:Name="ApplyHint" FontSize="12" Opacity="0.6" TextWrapping="Wrap" MaxLines="2" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="1.3*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Sheet / preview -->
+            <Border Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <SelectorBar x:Name="SheetBar" SelectionChanged="SheetBar_SelectionChanged">
+                        <SelectorBarItem x:Name="PreviewTab" Text="Rules" IsSelected="True" />
+                        <SelectorBarItem x:Name="CsvTab" Text="Sheet (CSV)" />
+                    </SelectorBar>
+
+                    <Grid x:Name="PreviewPanel" Grid.Row="1">
+                        <ListView x:Name="RuleList" SelectionMode="None" Padding="0,4">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:PolicyRow">
+                                    <Grid RowSpacing="4" ColumnSpacing="10" Padding="4,8" Opacity="{x:Bind RowOpacity}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="{x:Bind Number}" FontFamily="{StaticResource MonoFont}" Opacity="0.5" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <TextBlock Text="{x:Bind Path}" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.7" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <Border Grid.Column="2" CornerRadius="{StaticResource BadgeRadius}" Padding="8,2" Background="{x:Bind ActionBackground}">
+                                            <TextBlock Text="{x:Bind Action}" FontSize="10" FontWeight="Bold" Foreground="{x:Bind ActionBrush}" />
+                                        </Border>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Spacing="1">
+                                            <TextBlock Text="{x:Bind Source}" FontFamily="{StaticResource MonoFont}" FontSize="11.5" TextWrapping="Wrap" />
+                                            <TextBlock Text="{x:Bind Destination}" FontFamily="{StaticResource MonoFont}" FontSize="11.5" TextWrapping="Wrap" />
+                                            <TextBlock Text="{x:Bind Service}" FontFamily="{StaticResource MonoFont}" FontSize="11.5" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource OmlSkyBrush}" />
+                                            <TextBlock Text="{x:Bind Comment}" FontSize="11" Opacity="0.55" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="EmptyText" Opacity="0.55" TextWrapping="Wrap" Margin="4,12"
+                                   Text="No rules yet. Click 'Get sample sheet...' to start from a template, or 'Try example'." />
+                    </Grid>
+
+                    <TextBox x:Name="SheetBox" Grid.Row="1" Style="{StaticResource MonoInputStyle}" AcceptsReturn="True" Visibility="Collapsed"
+                             TextChanged="SheetBox_TextChanged" AutomationProperties.Name="Policy sheet CSV" />
+
+                    <InfoBar x:Name="IssuesBar" Grid.Row="2" Severity="Warning" IsClosable="False" IsOpen="False" Title="Skipped rows" />
+                </Grid>
+            </Border>
+
+            <!-- Options -->
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10" Padding="0,0,8,0">
+                        <TextBlock Text="OPTIONS" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBox x:Name="PrefixBox" Header="Prefix for new objects" PlaceholderText="e.g. CHG1234_" TextChanged="Option_TextChanged" />
+                        <CheckBox x:Name="RollbackBox" Content="Also generate rollback script" Click="Option_Click" />
+
+                        <StackPanel x:Name="FortiOptions" Spacing="10">
+                            <TextBox x:Name="VdomBox" Header="VDOM (blank = no VDOMs)" PlaceholderText="e.g. root" TextChanged="Option_TextChanged" />
+                            <NumberBox x:Name="StartIdBox" Header="First policy ID (0 = next free)" Value="0" Minimum="0" Maximum="4294967294"
+                                       SpinButtonPlacementMode="Hidden" ValueChanged="StartIdBox_ValueChanged" />
+                            <TextBlock Text="Set a start ID to make the rollback script able to delete the policies by ID." FontSize="11.5" Opacity="0.55" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanOptions" Spacing="10" Visibility="Collapsed">
+                            <ComboBox x:Name="PanScopeBox" Header="Location" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="Option_SelectionChanged">
+                                <ComboBoxItem Content="Firewall (single vsys)" Tag="" />
+                                <ComboBoxItem Content="Specific vsys..." Tag="vsys" />
+                                <ComboBoxItem Content="Panorama device-group..." Tag="dg" />
+                                <ComboBoxItem Content="Panorama shared" Tag="shared" />
+                            </ComboBox>
+                            <TextBox x:Name="PanScopeName" Header="vsys / device-group name" PlaceholderText="vsys2 or Branches" TextChanged="Option_TextChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="CpOptions" Spacing="10" Visibility="Collapsed">
+                            <TextBox x:Name="LayerBox" Header="Access layer" Text="Network" TextChanged="Option_TextChanged" />
+                            <ComboBox x:Name="PositionBox" Header="Rule position" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="Option_SelectionChanged">
+                                <ComboBoxItem Content="bottom" />
+                                <ComboBoxItem Content="top" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel x:Name="AsaOptions" Spacing="10" Visibility="Collapsed">
+                            <TextBox x:Name="AclSuffixBox" Header="ACL name = interface +" Text="_access_in" TextChanged="Option_TextChanged" />
+                            <CheckBox x:Name="AccessGroupBox" Content="Bind ACLs with access-group" IsChecked="True" Click="Option_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Output -->
+            <Border Grid.Column="2" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <SelectorBar x:Name="OutputBar" SelectionChanged="OutputBar_SelectionChanged">
+                            <SelectorBarItem Text="Config" IsSelected="True" />
+                            <SelectorBarItem x:Name="RollbackTab" Text="Rollback" />
+                        </SelectorBar>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" VerticalAlignment="Center">
+                            <Button Click="Copy_Click" ToolTipService.ToolTip="Copy to clipboard" AutomationProperties.Name="Copy">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="12" />
+                            </Button>
+                            <Button Click="Save_Click" ToolTipService.ToolTip="Save to a file" AutomationProperties.Name="Save">
+                                <FontIcon Glyph="&#xE74E;" FontSize="12" />
+                            </Button>
+                            <Button x:Name="SendButton" Style="{StaticResource AccentButtonStyle}" Click="Send_Click" AutomationProperties.Name="Send to session"
+                                    ToolTipService.ToolTip="Type this config into the last active terminal tab (CLI vendors only)">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE724;" FontSize="12" />
+                                    <TextBlock Text="Send" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <InfoBar x:Name="WarningsBar" Grid.Row="1" Severity="Informational" IsClosable="False" IsOpen="False" />
+                    <TextBox x:Name="OutputBox" Grid.Row="2" Style="{StaticResource MonoOutputStyle}" />
+                    <TextBlock x:Name="StatusText" Grid.Row="3" FontSize="12" Opacity="0.75" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

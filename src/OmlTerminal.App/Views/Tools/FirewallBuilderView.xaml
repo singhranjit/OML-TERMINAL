@@ -1,0 +1,146 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.FirewallBuilderView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Firewall Object Builder" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Paste IPs, subnets, ranges, FQDNs, wildcard FQDNs or ports. Get ready-to-paste CLI for FortiGate, Palo Alto or Cisco ASA, with groups and a rollback script. Nothing leaves this PC." />
+        </StackPanel>
+
+        <!-- Vendor / object type strip -->
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="14,10">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="VendorBox" MinWidth="260" VerticalAlignment="Center" SelectionChanged="Any_SelectionChanged"
+                          AutomationProperties.Name="Firewall vendor" />
+                <TextBlock x:Name="ApplyHint" Grid.Column="2" VerticalAlignment="Center" FontSize="12" Opacity="0.6"
+                           TextWrapping="Wrap" MaxLines="2" Margin="6,0" />
+                <SelectorBar x:Name="KindBar" Grid.Column="1" SelectionChanged="Any_SelectionChanged">
+                    <SelectorBarItem Text="Addresses &amp; FQDNs" Tag="Addresses" IsSelected="True" />
+                    <SelectorBarItem Text="Services" Tag="Services" />
+                </SelectorBar>
+                <TextBlock x:Name="CountText" Grid.Column="3" VerticalAlignment="Center" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.8" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="1.3*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Input -->
+            <Border Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <TextBlock Text="INPUT" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                            <Button Content="Example" Click="Example_Click" Padding="10,3" FontSize="12" />
+                            <Button Content="Load file..." Click="Load_Click" Padding="10,3" FontSize="12" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBox x:Name="InputBox" Grid.Row="1" Style="{StaticResource MonoInputStyle}" AcceptsReturn="True" TextChanged="Input_TextChanged"
+                             PlaceholderText="10.1.1.1&#x0a;10.2.0.0/16&#x0a;10.3.3.10-10.3.3.50&#x0a;portal.example.com&#x0a;*.example.org&#x0a;WebSrv,10.1.1.10,DMZ web" />
+                    <TextBlock x:Name="HintText" Grid.Row="2" FontSize="11.5" Opacity="0.6" TextWrapping="Wrap" />
+                    <InfoBar x:Name="IssuesBar" Grid.Row="3" Severity="Warning" IsClosable="False" IsOpen="False" Title="Skipped lines" />
+                </Grid>
+            </Border>
+
+            <!-- Options -->
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10" Padding="0,0,8,0">
+                        <TextBlock Text="OPTIONS" Style="{StaticResource SectionLabelStyle}" />
+                        <ComboBox x:Name="NamingBox" Header="Object naming" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="Any_SelectionChanged">
+                            <ComboBoxItem Content="Typed (H- / N- / R- / FQDN-)" />
+                            <ComboBoxItem Content="Plain (the value itself)" />
+                        </ComboBox>
+                        <TextBox x:Name="PrefixBox" Header="Name prefix" PlaceholderText="e.g. BLK_" TextChanged="Input_TextChanged" />
+                        <TextBox x:Name="SuffixBox" Header="Name suffix" PlaceholderText="e.g. _CHG1234" TextChanged="Input_TextChanged" />
+                        <TextBox x:Name="GroupBox" Header="Group name (blank = no group)" PlaceholderText="GRP-Blocklist" TextChanged="Input_TextChanged" />
+                        <TextBox x:Name="CommentBox" Header="Group comment / description" TextChanged="Input_TextChanged" />
+
+                        <StackPanel x:Name="FortiOptions" Spacing="10">
+                            <TextBox x:Name="VdomBox" Header="VDOM (blank = no VDOMs)" PlaceholderText="e.g. root" TextChanged="Input_TextChanged" />
+                            <TextBox x:Name="InterfaceBox" Header="Associated interface" PlaceholderText="port1 (optional)" TextChanged="Input_TextChanged" />
+                            <TextBox x:Name="CategoryBox" Header="Service category" PlaceholderText="General (optional)" TextChanged="Input_TextChanged" />
+                            <CheckBox x:Name="LegacyWildcardBox" Content="Legacy wildcard-FQDN syntax (FortiOS &lt; 6.2)" Click="Any_Click" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanOptions" Spacing="10" Visibility="Collapsed">
+                            <ComboBox x:Name="PanScopeBox" Header="Location" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="Any_SelectionChanged">
+                                <ComboBoxItem Content="Firewall (single vsys)" Tag="" />
+                                <ComboBoxItem Content="Shared" Tag="shared" />
+                                <ComboBoxItem Content="Specific vsys..." Tag="vsys" />
+                                <ComboBoxItem Content="Panorama device-group..." Tag="dg" />
+                            </ComboBox>
+                            <TextBox x:Name="PanScopeName" Header="vsys / device-group name" PlaceholderText="vsys2 or Branches" TextChanged="Input_TextChanged" />
+                            <TextBox x:Name="PanTagBox" Header="Tag (optional)" PlaceholderText="Blocklist" TextChanged="Input_TextChanged" />
+                        </StackPanel>
+                        <CheckBox x:Name="RollbackBox" Content="Also generate rollback script" Click="Any_Click" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Output -->
+            <Border Grid.Column="2" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <SelectorBar x:Name="OutputBar" SelectionChanged="OutputBar_SelectionChanged">
+                            <SelectorBarItem Text="Config" IsSelected="True" />
+                            <SelectorBarItem x:Name="RollbackTab" Text="Rollback" />
+                        </SelectorBar>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" VerticalAlignment="Center">
+                            <Button Click="Copy_Click" ToolTipService.ToolTip="Copy to clipboard" AutomationProperties.Name="Copy">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="12" />
+                            </Button>
+                            <Button Click="Save_Click" ToolTipService.ToolTip="Save as a .txt script" AutomationProperties.Name="Save as a .txt script">
+                                <FontIcon Glyph="&#xE74E;" FontSize="12" />
+                            </Button>
+                            <Button Style="{StaticResource AccentButtonStyle}" Click="Send_Click"
+                                    ToolTipService.ToolTip="Type this config into the active (last used) terminal tab" AutomationProperties.Name="Type this config into the active (last used) terminal tab">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE724;" FontSize="12" />
+                                    <TextBlock Text="Send to session" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <InfoBar x:Name="WarningsBar" Grid.Row="1" Severity="Informational" IsClosable="False" IsOpen="False" />
+                    <TextBox x:Name="OutputBox" Grid.Row="2" Style="{StaticResource MonoOutputStyle}" />
+                    <TextBlock x:Name="SendStatus" Grid.Row="3" FontSize="12" Opacity="0.75" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
