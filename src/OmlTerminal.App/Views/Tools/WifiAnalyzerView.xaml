@@ -1,0 +1,281 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.WifiAnalyzerView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Wi-Fi Analyzer" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Every nearby access point with its band, channel width, Wi-Fi generation, security and client load; live signal graphs; channel planning for 2.4, 5 and 6 GHz; roaming events on your own connection; and floor-plan site surveys with signal, roaming-overlap, interference and SIR heatmaps." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="AdapterBox" Header="Wi-Fi adapter" HorizontalAlignment="Stretch" DisplayMemberPath="Description" SelectionChanged="AdapterBox_SelectionChanged" />
+                <NumberBox x:Name="IntervalBox" Grid.Column="1" Header="Scan every (s)" Value="5" Minimum="3" Maximum="60" Width="110" SpinButtonPlacementMode="Compact" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                    <ToggleButton x:Name="ScanToggle" Content="Scanning" IsChecked="True" Click="ScanToggle_Click" MinWidth="100" />
+                    <Button Click="SaveScan_Click" ToolTipService.ToolTip="Save this scan (JSON for replay, or CSV for Excel)" AutomationProperties.Name="Save scan">
+                        <FontIcon Glyph="&#xE74E;" FontSize="12" />
+                    </Button>
+                    <Button Click="OpenScan_Click" ToolTipService.ToolTip="Open a saved scan (review a site visit later, or analyse on a PC without Wi-Fi)" AutomationProperties.Name="Open saved scan">
+                        <FontIcon Glyph="&#xE8E5;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+                <Border Grid.Column="3" Background="{StaticResource InputSurfaceBrush}" CornerRadius="10" Padding="14,8" HorizontalAlignment="Stretch">
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon x:Name="ConnIcon" Glyph="&#xE701;" FontSize="22" Foreground="{StaticResource StatusIdleBrush}" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="ConnTitle" Text="Not connected" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ConnDetail" FontSize="12" Opacity="0.7" FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <SelectorBar x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged">
+                <SelectorBarItem Text="Networks" IsSelected="True" />
+                <SelectorBarItem Text="Channels" />
+                <SelectorBarItem Text="Site survey" />
+                <SelectorBarItem Text="Roaming log" />
+            </SelectorBar>
+            <TextBlock x:Name="StatusText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12.5" Opacity="0.75" />
+        </Grid>
+
+        <!-- Networks -->
+        <Grid x:Name="NetworksPage" Grid.Row="3" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="230" />
+            </Grid.RowDefinitions>
+            <Border Style="{StaticResource ToolCardStyle}" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Padding="14,10" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="150" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="NetFilter" PlaceholderText="Filter by SSID, BSSID, security, standard…" TextChanged="NetFilter_TextChanged" />
+                        <ComboBox x:Name="BandFilter" Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="BandFilter_SelectionChanged">
+                            <ComboBoxItem Content="All bands" />
+                            <ComboBoxItem Content="2.4 GHz" />
+                            <ComboBoxItem Content="5 GHz" />
+                            <ComboBoxItem Content="6 GHz" />
+                        </ComboBox>
+                        <ComboBox x:Name="SortBox" Grid.Column="2" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="BandFilter_SelectionChanged">
+                            <ComboBoxItem Content="Strongest first" />
+                            <ComboBoxItem Content="By SSID" />
+                            <ComboBoxItem Content="By channel" />
+                        </ComboBox>
+                    </Grid>
+                    <Grid Grid.Row="1" Padding="16,6" ColumnSpacing="10" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2.2*" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="NETWORK" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock Grid.Column="1" Text="SIGNAL" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock Grid.Column="2" Text="CHANNEL" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock Grid.Column="3" Text="STANDARD" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock Grid.Column="4" Text="SECURITY" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock Grid.Column="5" Text="LOAD" Style="{StaticResource SectionLabelStyle}" />
+                    </Grid>
+                    <ListView x:Name="NetList" Grid.Row="2" SelectionMode="Multiple" SelectionChanged="NetList_SelectionChanged" Padding="4">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:WifiRow">
+                                <Grid ColumnSpacing="10" Padding="4,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2.2*" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="1.2*" />
+                                        <ColumnDefinition Width="1.4*" />
+                                        <ColumnDefinition Width="120" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Ellipse Width="9" Height="9" Fill="{x:Bind Swatch}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{x:Bind Ssid}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind ConnectedTag}" Foreground="{StaticResource OmlMintBrush}" FontSize="11" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Text="{x:Bind Bssid}" FontSize="11" Opacity="0.55" FontFamily="{StaticResource MonoFont}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                        <Grid>
+                                            <Border Height="6" CornerRadius="3" Background="{StaticResource HairlineBrush}" />
+                                            <Border Height="6" CornerRadius="3" Background="{x:Bind SignalBrush}" HorizontalAlignment="Left" Width="{x:Bind SignalWidth}" />
+                                        </Grid>
+                                        <TextBlock Text="{x:Bind SignalText}" FontSize="11.5" FontFamily="{StaticResource MonoFont}" Foreground="{x:Bind SignalBrush}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind ChannelText}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" />
+                                        <TextBlock Text="{x:Bind BandText}" FontSize="11" Opacity="0.55" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="3" Text="{x:Bind Standard}" VerticalAlignment="Center" FontSize="12.5" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind Security}" Foreground="{x:Bind SecurityBrush}" VerticalAlignment="Center" FontSize="12.5" TextWrapping="Wrap" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind LoadText}" VerticalAlignment="Center" FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock x:Name="NetEmpty" Grid.Row="2" Margin="16" Opacity="0.6" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+            <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="GraphTitle" Text="SIGNAL OVER TIME · TICK NETWORKS ABOVE TO GRAPH THEM (STRONGEST SIX SHOWN BY DEFAULT)" Style="{StaticResource SectionLabelStyle}" />
+                    <Canvas x:Name="GraphCanvas" Grid.Row="1" SizeChanged="Graph_SizeChanged" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Channels -->
+        <ScrollViewer x:Name="ChannelsPage" Grid.Row="3" Visibility="Collapsed">
+            <StackPanel Spacing="12">
+                <Border Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="RECOMMENDATIONS" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock x:Name="AdviceText" TextWrapping="Wrap" FontSize="13.5" />
+                        <CheckBox x:Name="DfsCheck" Content="Allow DFS channels (52-144) for 5 GHz" Click="DfsCheck_Click" />
+                        <ItemsControl x:Name="WarningsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                        <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="{StaticResource OmlAmberBrush}" />
+                                        <TextBlock Text="{x:Bind}" TextWrapping="Wrap" FontSize="13" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="2.4 GHZ" Style="{StaticResource SectionLabelStyle}" />
+                        <Canvas x:Name="Chart24" Height="230" SizeChanged="Chart_SizeChanged" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="5 GHZ" Style="{StaticResource SectionLabelStyle}" />
+                        <Canvas x:Name="Chart5" Height="230" SizeChanged="Chart_SizeChanged" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ToolCardStyle}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="6 GHZ" Style="{StaticResource SectionLabelStyle}" />
+                        <Canvas x:Name="Chart6" Height="230" SizeChanged="Chart_SizeChanged" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Site survey -->
+        <Grid x:Name="SurveyPage" Grid.Row="3" ColumnSpacing="12" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource ToolCardStyle}" Padding="0">
+                <Grid>
+                    <ScrollViewer x:Name="PlanScroll" ZoomMode="Enabled" MinZoomFactor="0.3" MaxZoomFactor="4" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Grid x:Name="PlanSurface" HorizontalAlignment="Left" VerticalAlignment="Top" Tapped="PlanSurface_Tapped" Background="{StaticResource TerminalBackgroundBrush}">
+                            <Image x:Name="PlanImage" Stretch="Fill" />
+                            <Image x:Name="HeatImage" Stretch="Fill" />
+                            <Canvas x:Name="MarkerCanvas" />
+                        </Grid>
+                    </ScrollViewer>
+                    <StackPanel x:Name="PlanEmpty" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="460">
+                        <TextBlock Text="Load a floor plan (PNG/JPG), then walk the site and click where you're standing - each click takes a Wi-Fi reading at that spot." TextWrapping="Wrap" TextAlignment="Center" Opacity="0.7" />
+                        <Button Content="Load floor plan…" Click="LoadPlan_Click" HorizontalAlignment="Center" Style="{StaticResource AccentButtonStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <ScrollViewer>
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="SURVEY" Style="{StaticResource SectionLabelStyle}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Click="LoadPlan_Click" ToolTipService.ToolTip="Load a floor plan image"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8B9;" FontSize="12" /><TextBlock Text="Plan" /></StackPanel></Button>
+                            <Button Click="OpenSurvey_Click" ToolTipService.ToolTip="Open a saved survey (.omlsurvey)" AutomationProperties.Name="Open survey"><FontIcon Glyph="&#xE8E5;" FontSize="12" /></Button>
+                            <Button Click="SaveSurvey_Click" ToolTipService.ToolTip="Save the survey (.omlsurvey - plan and readings in one file)" AutomationProperties.Name="Save survey"><FontIcon Glyph="&#xE74E;" FontSize="12" /></Button>
+                            <Button Click="Undo_Click" ToolTipService.ToolTip="Remove the last reading" AutomationProperties.Name="Undo last reading"><FontIcon Glyph="&#xE7A7;" FontSize="12" /></Button>
+                        </StackPanel>
+                        <ComboBox x:Name="MetricBox" Header="Heatmap" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="SurveyOption_Changed">
+                            <ComboBoxItem Content="Signal level" />
+                            <ComboBoxItem Content="Roaming overlap (2nd-best AP)" />
+                            <ComboBoxItem Content="Networks heard (interference)" />
+                            <ComboBoxItem Content="Signal-to-interference (SIR)" />
+                        </ComboBox>
+                        <ComboBox x:Name="SsidBox" Header="Network" HorizontalAlignment="Stretch" SelectionChanged="SurveyOption_Changed" />
+                        <NumberBox x:Name="TargetBox" Header="Target signal (dBm)" Value="-67" Minimum="-90" Maximum="-40" SpinButtonPlacementMode="Compact" ValueChanged="TargetBox_ValueChanged" ToolTipService.ToolTip="-67 dBm is the usual target for voice and video; -70 for data" />
+                        <TextBlock x:Name="SurveyStats" TextWrapping="Wrap" FontSize="13" />
+                        <Border x:Name="LegendBar" Height="12" CornerRadius="6" />
+                        <Grid>
+                            <TextBlock x:Name="LegendLow" FontSize="11" Opacity="0.6" />
+                            <TextBlock x:Name="LegendHigh" FontSize="11" Opacity="0.6" HorizontalAlignment="Right" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Click="ExportPng_Click"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xEB9F;" FontSize="12" /><TextBlock Text="PNG" /></StackPanel></Button>
+                            <Button Click="ExportCsv_Click"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8A5;" FontSize="12" /><TextBlock Text="CSV" /></StackPanel></Button>
+                        </StackPanel>
+                        <TextBlock Text="Tip: take a reading every few metres and in every room; areas nobody walked stay blank instead of being guessed." TextWrapping="Wrap" FontSize="12" Opacity="0.55" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Roaming -->
+        <Border x:Name="RoamPage" Grid.Row="3" Style="{StaticResource ToolCardStyle}" Visibility="Collapsed">
+            <Grid RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="CONNECTION EVENTS · ROAMS, DROPS AND RECONNECTS WHILE THIS TAB IS OPEN" Style="{StaticResource SectionLabelStyle}" />
+                <ListView x:Name="RoamList" Grid.Row="1" SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <TextBlock Text="{x:Bind}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" Padding="0,3" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,237 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.PacketAnalyzerView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Packet Analyzer" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Capture on any Ethernet or Wi-Fi adapter on this PC - or open a pcap/pcapng - and let OML Terminal point out what's wrong: IP conflicts, refused or unanswered connections, retransmissions, DNS and DHCP failures, ICMP errors, spanning-tree changes and broadcast storms. Saves standard pcap for Wireshark." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="10" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.3*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ComboBox x:Name="InterfaceBox" Header="Adapter" HorizontalAlignment="Stretch" PlaceholderText="Pick an adapter" SelectionChanged="InterfaceBox_SelectionChanged" />
+                <TextBox x:Name="CaptureFilterBox" Grid.Column="1" Header="Capture filter (BPF, optional)" FontFamily="{StaticResource MonoFont}" FontSize="12.5"
+                         PlaceholderText="e.g. host 10.0.0.5 and not port 22" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
+                    <CheckBox x:Name="PromiscuousCheck" Content="Promiscuous" IsChecked="True" ToolTipService.ToolTip="Also capture traffic not addressed to this PC (on a switch you'll mostly see broadcasts unless the port is mirrored)" MinWidth="0" />
+                    <CheckBox x:Name="MonitorCheck" Content="Monitor mode" IsEnabled="False" ToolTipService.ToolTip="Wi-Fi only: capture raw 802.11 frames from every nearby network. Needs a supported adapter and Npcap's 802.11 support." MinWidth="0" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                    <Button x:Name="StartButton" Style="{StaticResource AccentButtonStyle}" Click="Start_Click" MinWidth="96">
+                        <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE768;" FontSize="12" /><TextBlock Text="Start" /></StackPanel>
+                    </Button>
+                    <Button x:Name="StopButton" Click="Stop_Click" IsEnabled="False" ToolTipService.ToolTip="Stop capturing" AutomationProperties.Name="Stop">
+                        <FontIcon Glyph="&#xE71A;" FontSize="12" />
+                    </Button>
+                    <Button Click="Open_Click" ToolTipService.ToolTip="Open a pcap / pcapng file" AutomationProperties.Name="Open capture file">
+                        <FontIcon Glyph="&#xE8E5;" FontSize="12" />
+                    </Button>
+                    <Button Click="Save_Click" ToolTipService.ToolTip="Save shown packets as pcap (opens in Wireshark)" AutomationProperties.Name="Save as pcap">
+                        <FontIcon Glyph="&#xE74E;" FontSize="12" />
+                    </Button>
+                    <Button Click="Clear_Click" ToolTipService.ToolTip="Clear all packets" AutomationProperties.Name="Clear">
+                        <FontIcon Glyph="&#xE74D;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+                <InfoBar x:Name="NpcapBar" Grid.Row="1" Grid.ColumnSpan="2" Severity="Informational" IsClosable="False" IsOpen="False"
+                         Title="Npcap isn't installed" Message="Capturing IP traffic only (no Ethernet, ARP, VLAN tags or Wi-Fi monitor mode), and OML Terminal must run as administrator. Install the free Npcap driver for full captures.">
+                    <InfoBar.ActionButton>
+                        <HyperlinkButton Content="Get Npcap" NavigateUri="https://npcap.com/#download" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+                <TextBlock x:Name="StatusText" Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" FontSize="12.5" Opacity="0.8" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Right"
+                           Text="Pick an adapter and press Start." />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="FilterBox" FontFamily="{StaticResource MonoFont}" FontSize="13" BorderThickness="1.5"
+                     PlaceholderText="Display filter - e.g.  ip.addr == 10.0.0.0/24 &amp;&amp; tcp.port == 443   ·   dns.qry.name contains &quot;corp&quot;   ·   !arp"
+                     TextChanged="FilterBox_TextChanged" KeyDown="FilterBox_KeyDown" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <Button Content="tcp" Click="Quick_Click" Tag="tcp" Padding="9,4" />
+                <Button Content="dns" Click="Quick_Click" Tag="dns" Padding="9,4" />
+                <Button Content="dhcp" Click="Quick_Click" Tag="dhcp" Padding="9,4" />
+                <Button Content="arp" Click="Quick_Click" Tag="arp" Padding="9,4" />
+                <Button Content="icmp" Click="Quick_Click" Tag="icmp || icmpv6" Padding="9,4" />
+                <Button Content="errors" Click="Quick_Click" Tag="tcp.flags.reset || dns.error || icmp.type == 3 || malformed" Padding="9,4" ToolTipService.ToolTip="Resets, DNS errors, unreachables, malformed" />
+                <Button Content="no L2 noise" Click="Quick_Click" Tag="!(stp || cdp || lldp || dtp || pvst+ || lacp || mdns || llmnr || nbns || ssdp)" Padding="9,4" ToolTipService.ToolTip="Hide spanning-tree, discovery and chatter protocols" />
+            </StackPanel>
+            <TextBlock x:Name="CountText" Grid.Column="2" VerticalAlignment="Center" FontSize="12" Opacity="0.7" MinWidth="120" TextAlignment="Right" />
+        </Grid>
+
+        <Grid Grid.Row="3" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="400" />
+            </Grid.ColumnDefinitions>
+
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="3*" />
+                    <RowDefinition Height="2*" />
+                </Grid.RowDefinitions>
+
+                <Border Style="{StaticResource ToolCardStyle}" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Padding="14,8,14,8" ColumnSpacing="10" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="58" />
+                                <ColumnDefinition Width="92" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="72" />
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="NO." Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="1" Text="TIME" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="2" Text="SOURCE" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="3" Text="DESTINATION" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="4" Text="PROTO" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="5" Text="LEN" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="6" Text="INFO" Style="{StaticResource SectionLabelStyle}" />
+                            <ToggleButton x:Name="AutoScrollToggle" Grid.Column="7" IsChecked="True" Padding="8,2" FontSize="11" Content="Follow live" Margin="0,-4" />
+                        </Grid>
+                        <ListView x:Name="PacketList" Grid.Row="1" SelectionMode="Single" SelectionChanged="PacketList_SelectionChanged" Padding="2,0">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="MinHeight" Value="22" />
+                                    <Setter Property="Padding" Value="12,0,12,0" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:PacketRow">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="58" />
+                                            <ColumnDefinition Width="92" />
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="72" />
+                                            <ColumnDefinition Width="52" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind Number}" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.6" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Time}" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.75" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind Source}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind Destination}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind Protocol}" Foreground="{x:Bind Brush}" FontFamily="{StaticResource MonoFont}" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="5" Text="{x:Bind Length}" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.75" />
+                                        <TextBlock Grid.Column="6" Text="{x:Bind Info}" Foreground="{x:Bind Brush}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="EmptyText" Grid.Row="1" Margin="16" Opacity="0.55" TextWrapping="Wrap"
+                                   Text="No packets yet. Start a capture, or open a .pcap / .pcapng file." />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
+                    <Grid ColumnSpacing="12" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="DetailTitle" Text="PACKET DETAILS" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                            <Button x:Name="FollowButton" Click="Follow_Click" IsEnabled="False" ToolTipService.ToolTip="Show the whole TCP conversation's payload in order">
+                                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8BD;" FontSize="12" /><TextBlock Text="Follow TCP stream" /></StackPanel>
+                            </Button>
+                            <Button x:Name="ConversationFilterButton" Click="ConversationFilter_Click" IsEnabled="False" ToolTipService.ToolTip="Filter to this packet's conversation">
+                                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE71C;" FontSize="12" /><TextBlock Text="Conversation" /></StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <TreeView x:Name="DetailTree" Grid.Row="1" SelectionMode="None" />
+                        <TextBox x:Name="HexBox" Grid.Row="1" Grid.Column="1" Style="{StaticResource MonoOutputStyle}" FontSize="11.5" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <SelectorBar x:Name="SideBar" SelectionChanged="SideBar_SelectionChanged">
+                        <SelectorBarItem Text="Problems" IsSelected="True" />
+                        <SelectorBarItem Text="Conversations" />
+                        <SelectorBarItem Text="Protocols" />
+                    </SelectorBar>
+                    <ListView x:Name="InsightList" Grid.Row="1" SelectionMode="None" IsItemClickEnabled="True" ItemClick="InsightList_ItemClick" Padding="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:InsightRow">
+                                <Grid ColumnSpacing="10" Padding="0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="{x:Bind Glyph}" Foreground="{x:Bind Brush}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{x:Bind Insight.Title}" Foreground="{x:Bind Brush}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind Insight.Detail}" FontSize="12" Opacity="0.75" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind FilterHint}" FontSize="11" Opacity="0.5" FontFamily="{StaticResource MonoFont}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <ListView x:Name="StatsList" Grid.Row="1" SelectionMode="None" IsItemClickEnabled="True" ItemClick="StatsList_ItemClick" Visibility="Collapsed" Padding="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:StatRow">
+                                <Grid ColumnSpacing="8" Padding="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{x:Bind Title}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind Subtitle}" FontSize="11" Opacity="0.55" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Value}" FontFamily="{StaticResource MonoFont}" FontSize="12" VerticalAlignment="Center" Foreground="{StaticResource OmlSkyBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

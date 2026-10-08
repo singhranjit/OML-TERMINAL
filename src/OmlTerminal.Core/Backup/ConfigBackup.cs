@@ -137,7 +137,7 @@ public static partial class ConfigBackup
     /// <summary>Reads from an interactive shell stream until it's been quiet for <paramref name="idle"/>, answering
     /// "--More--" style paging prompts along the way. Shared with <see cref="Copilot.DeviceShell"/>, which drives
     /// the same kind of shell to run commands a copilot chooses one at a time.</summary>
-    public static async Task<string> ReadUntilQuietAsync(Renci.SshNet.ShellStream shell, TimeSpan idle, CancellationToken ct)
+    public static async Task<string> ReadUntilQuietAsync(Renci.SshNet.ShellStream shell, TimeSpan idle, CancellationToken ct, string? prompt = null)
     {
         var sb = new StringBuilder();
         var buf = new byte[1 << 16];
@@ -146,6 +146,10 @@ public static partial class ConfigBackup
         while (DateTime.UtcNow - lastData < idle && DateTime.UtcNow < hardStop)
         {
             ct.ThrowIfCancellationRequested();
+            // The prompt is back and nothing more has arrived for a moment: the command is done - no need to sit out the idle time.
+            if (prompt is { Length: > 0 } && DateTime.UtcNow - lastData > TimeSpan.FromMilliseconds(150) && sb.Length > 0
+                && sb.ToString(Math.Max(0, sb.Length - prompt.Length - 4), Math.Min(sb.Length, prompt.Length + 4)).TrimEnd().EndsWith(prompt, StringComparison.Ordinal))
+                break;
             if (shell.DataAvailable)
             {
                 int n = shell.Read(buf, 0, buf.Length);

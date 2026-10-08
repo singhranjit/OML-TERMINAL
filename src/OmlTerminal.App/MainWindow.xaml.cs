@@ -141,6 +141,9 @@ public sealed partial class MainWindow : Window
         _backupSchedulerTick.Tick += async (_, _) => await _backupScheduler.TickAsync(_backupSchedulerCts.Token);
         _backupSchedulerTick.Start();
         Closed += (_, _) => { _xserverPoll.Stop(); _xserver.Stop(); _backupSchedulerTick.Stop(); _backupSchedulerCts.Cancel(); };
+        // MRTG-style traffic graphing keeps polling while the app is open, tab or no tab.
+        Core.Snmp.TrafficGrapher.Shared.Start();
+        Closed += (_, _) => Core.Snmp.TrafficGrapher.Shared.Dispose();
 
         RootGrid.Loaded += async (_, _) =>
         {
@@ -2213,6 +2216,9 @@ public sealed partial class MainWindow : Window
         "portscan" => "Ports",
         "localports" => "Netstat",
         "ping" => "Ping",
+        "pathtrace" => "Visual Trace",
+        "pingmon" => "Ping Monitor",
+        "mrtg" => "MRTG",
         "dns" => "DNS",
         "subnet" => "Subnet",
         "capture" => "Capture",
@@ -2223,6 +2229,8 @@ public sealed partial class MainWindow : Window
         "cliguide" => "CLI Guide",
         "netservices" => "Servers",
         "topology" => "Topology",
+        "analyzer" => "Analyzer",
+        "wifi" => "Wi-Fi",
         "tables" => "Tables",
         "changeguard" => "Change Guard",
         "search" => "Search",

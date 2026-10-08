@@ -62,7 +62,7 @@ public sealed partial class DeviceSession : IDisposable
         }
         _shell.WriteLine(command);
         _shell.Flush();
-        var raw = await ConfigBackup.ReadUntilQuietAsync(_shell, idle ?? TimeSpan.FromSeconds(2.5), ct).ConfigureAwait(false);
+        var raw = await ConfigBackup.ReadUntilQuietAsync(_shell, idle ?? TimeSpan.FromSeconds(2.5), ct, idle is null ? Prompt : null).ConfigureAwait(false);
         return ConfigBackup.StripEchoAndPrompt(raw, command);
     }
 

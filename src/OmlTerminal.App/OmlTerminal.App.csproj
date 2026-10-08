@@ -17,7 +17,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
-    <Version>0.3.6</Version>
+    <Version>0.3.7</Version>
     <Product>OML Terminal</Product>
     <Company>OML Labs</Company>
     <Copyright>OML Labs</Copyright>

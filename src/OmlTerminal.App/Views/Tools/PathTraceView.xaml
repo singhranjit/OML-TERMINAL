@@ -1,0 +1,253 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.PathTraceView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Visual Trace" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="See the path, not just a list of hops: a live traceroute drawn hop by hop with loss, latency and jitter, a plain-English verdict on where the problem really is, the hop-by-hop path through your own routers and switches (interfaces, load and errors at every hop, down to the host's switch port), and multicast trees." />
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <SelectorBar x:Name="Modes" SelectionChanged="Modes_SelectionChanged">
+                <SelectorBarItem Text="From this PC" IsSelected="True" />
+                <SelectorBarItem Text="Through my devices" />
+                <SelectorBarItem Text="Multicast" />
+            </SelectorBar>
+            <TextBlock x:Name="StatusText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12.5" Opacity="0.75" TextTrimming="CharacterEllipsis" MaxWidth="640" />
+        </Grid>
+
+        <Border Grid.Row="2" Style="{StaticResource ToolCardStyle}" Padding="16,12">
+            <Grid>
+                <!-- From this PC -->
+                <Grid x:Name="PcControls" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TargetBox" Header="Destination" PlaceholderText="8.8.8.8 / server.example.com" FontFamily="{StaticResource MonoFont}" KeyDown="TargetBox_KeyDown" />
+                    <NumberBox x:Name="IntervalBox" Grid.Column="1" Header="Every (s)" Value="1" Minimum="0.2" Maximum="60" SmallChange="0.5" SpinButtonPlacementMode="Compact" />
+                    <NumberBox x:Name="MaxHopsBox" Grid.Column="2" Header="Max hops" Value="30" Minimum="1" Maximum="64" SpinButtonPlacementMode="Hidden" />
+                    <NumberBox x:Name="SizeBox" Grid.Column="3" Header="Size (bytes)" Value="32" Minimum="0" Maximum="65000" SpinButtonPlacementMode="Hidden" />
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                        <Button x:Name="PcStart" Style="{StaticResource AccentButtonStyle}" Click="PcStart_Click" MinWidth="96" AutomationProperties.Name="Start trace">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE768;" FontSize="12" /><TextBlock Text="Start" /></StackPanel>
+                        </Button>
+                        <Button x:Name="PcStop" Click="Stop_Click" IsEnabled="False" ToolTipService.ToolTip="Stop" AutomationProperties.Name="Stop trace"><FontIcon Glyph="&#xE71A;" FontSize="12" /></Button>
+                        <Button Click="CopyReport_Click" ToolTipService.ToolTip="Copy a text report (hops, stats and findings) - paste it into a ticket" AutomationProperties.Name="Copy report"><FontIcon Glyph="&#xE8C8;" FontSize="12" /></Button>
+                        <Button Click="SaveCsv_Click" ToolTipService.ToolTip="Save hop statistics as CSV" AutomationProperties.Name="Save CSV"><FontIcon Glyph="&#xE74E;" FontSize="12" /></Button>
+                    </StackPanel>
+                </Grid>
+                <!-- Through my devices -->
+                <Grid x:Name="DeviceControls" ColumnSpacing="10" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="260" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="StartDeviceBox" Header="Start at (the source's first router)" HorizontalAlignment="Stretch" DisplayMemberPath="Display" />
+                    <TextBox x:Name="DeviceDestBox" Grid.Column="1" Header="Destination IP" PlaceholderText="10.10.20.57" FontFamily="{StaticResource MonoFont}" KeyDown="DeviceDestBox_KeyDown" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                        <CheckBox x:Name="EcmpCheck" Content="All equal-cost paths" IsChecked="True" MinWidth="0" />
+                        <CheckBox x:Name="L2Check" Content="Layer 2 to the port" IsChecked="True" MinWidth="0" />
+                        <CheckBox x:Name="StatsCheck" Content="Interface health" IsChecked="True" MinWidth="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                        <Button x:Name="DevStart" Style="{StaticResource AccentButtonStyle}" Click="DevStart_Click" MinWidth="96" AutomationProperties.Name="Trace path">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE81E;" FontSize="12" /><TextBlock Text="Trace" /></StackPanel>
+                        </Button>
+                        <Button x:Name="DevStop" Click="Stop_Click" IsEnabled="False" ToolTipService.ToolTip="Stop" AutomationProperties.Name="Stop device trace"><FontIcon Glyph="&#xE71A;" FontSize="12" /></Button>
+                        <Button Click="CopyReport_Click" ToolTipService.ToolTip="Copy a text report" AutomationProperties.Name="Copy device report"><FontIcon Glyph="&#xE8C8;" FontSize="12" /></Button>
+                    </StackPanel>
+                </Grid>
+                <!-- Multicast -->
+                <Grid x:Name="McastControls" ColumnSpacing="10" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="240" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="McastStartBox" Header="Receiver's router" HorizontalAlignment="Stretch" DisplayMemberPath="Display" />
+                    <TextBox x:Name="McastSourceBox" Grid.Column="1" Header="Source" PlaceholderText="10.10.50.40" FontFamily="{StaticResource MonoFont}" />
+                    <TextBox x:Name="McastGroupBox" Grid.Column="2" Header="Group" PlaceholderText="239.1.1.10" FontFamily="{StaticResource MonoFont}" />
+                    <ComboBox x:Name="McastMethodBox" Grid.Column="3" Header="Method" HorizontalAlignment="Stretch" SelectedIndex="0">
+                        <ComboBoxItem Content="RPF walk (every hop's state)" />
+                        <ComboBoxItem Content="Router's mtrace" />
+                    </ComboBox>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                        <Button x:Name="McStart" Style="{StaticResource AccentButtonStyle}" Click="McStart_Click" MinWidth="96" AutomationProperties.Name="Trace multicast">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE81E;" FontSize="12" /><TextBlock Text="Trace" /></StackPanel>
+                        </Button>
+                        <Button x:Name="McStop" Click="Stop_Click" IsEnabled="False" ToolTipService.ToolTip="Stop" AutomationProperties.Name="Stop multicast trace"><FontIcon Glyph="&#xE71A;" FontSize="12" /></Button>
+                        <Button Click="CopyReport_Click" ToolTipService.ToolTip="Copy a text report" AutomationProperties.Name="Copy multicast report"><FontIcon Glyph="&#xE8C8;" FontSize="12" /></Button>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- The path -->
+        <Border Grid.Row="3" Style="{StaticResource ToolCardStyle}" Padding="0">
+            <Grid>
+                <ScrollViewer x:Name="PathScroll" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Enabled" MaxHeight="330">
+                    <Canvas x:Name="PathCanvas" Height="150" Margin="0,4" />
+                </ScrollViewer>
+                <TextBlock x:Name="PathEmpty" Margin="20,24" Opacity="0.6" TextWrapping="Wrap" HorizontalAlignment="Center"
+                           Text="Enter a destination and press Start. Each hop appears as it answers; colours show where loss and delay really are - green clean, amber suspect, red the problem." />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="4" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="380" />
+            </Grid.ColumnDefinitions>
+
+            <!-- PC mode: hop table + timeline -->
+            <Grid x:Name="PcDetails" RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="190" />
+                </Grid.RowDefinitions>
+                <Border Style="{StaticResource ToolCardStyle}" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Padding="16,8" ColumnSpacing="8" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="34" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="58" />
+                                <ColumnDefinition Width="54" />
+                                <ColumnDefinition Width="54" />
+                                <ColumnDefinition Width="54" />
+                                <ColumnDefinition Width="54" />
+                                <ColumnDefinition Width="54" />
+                                <ColumnDefinition Width="1.4*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="HOP" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="1" Text="ADDRESS · NAME · OWNER" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="2" Text="LOSS" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="3" Text="LAST" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="4" Text="AVG" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="5" Text="BEST" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="6" Text="WORST" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="7" Text="JITTER" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="8" Text="LATENCY RANGE (BEST · AVG · WORST)" Style="{StaticResource SectionLabelStyle}" />
+                        </Grid>
+                        <ListView x:Name="HopList" Grid.Row="1" SelectionMode="Single" SelectionChanged="HopList_SelectionChanged" Padding="4">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:HopRow">
+                                    <Grid ColumnSpacing="8" Padding="4,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="34" />
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="58" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="1.4*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind HopText}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind Subtitle}" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis" FontFamily="{StaticResource MonoFont}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="{x:Bind LossText}" Foreground="{x:Bind LossBrush}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind LastText}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind AvgText}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="5" Text="{x:Bind BestText}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" Opacity="0.75" />
+                                        <TextBlock Grid.Column="6" Text="{x:Bind WorstText}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" Opacity="0.75" />
+                                        <TextBlock Grid.Column="7" Text="{x:Bind JitterText}" FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center" Opacity="0.75" />
+                                        <Grid Grid.Column="8" Height="14" VerticalAlignment="Center">
+                                            <Border Height="2" Background="{StaticResource HairlineBrush}" VerticalAlignment="Center" />
+                                            <Border Height="8" CornerRadius="4" Background="{x:Bind BarBrush}" Opacity="0.55" HorizontalAlignment="Left" Margin="{x:Bind BarMargin}" Width="{x:Bind BarWidth}" />
+                                            <Border Width="3" Height="14" CornerRadius="1" Background="{x:Bind BarBrush}" HorizontalAlignment="Left" Margin="{x:Bind AvgMargin}" />
+                                        </Grid>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+                <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
+                    <Grid RowSpacing="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="TimelineTitle" Text="LATENCY OVER TIME · CLICK A HOP TO GRAPH IT" Style="{StaticResource SectionLabelStyle}" />
+                        <Canvas x:Name="TimelineCanvas" Grid.Row="1" SizeChanged="Timeline_SizeChanged" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Device / multicast mode: per-hop details -->
+            <Border x:Name="NodeDetails" Style="{StaticResource ToolCardStyle}" Padding="0" Visibility="Collapsed">
+                <ListView x:Name="NodeList" SelectionMode="None" Padding="8">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:NodeRow">
+                            <StackPanel Spacing="3" Padding="6,8" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="{x:Bind Glyph}" FontSize="15" Foreground="{x:Bind Brush}" />
+                                    <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{x:Bind Address}" FontFamily="{StaticResource MonoFont}" Opacity="0.6" FontSize="12" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind Status}" Foreground="{x:Bind Brush}" FontSize="12.5" TextWrapping="Wrap" />
+                                <TextBlock Text="{x:Bind Body}" FontFamily="{StaticResource MonoFont}" FontSize="12" Opacity="0.85" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                <TextBlock Text="{x:Bind CommandsText}" FontFamily="{StaticResource MonoFont}" FontSize="11" Opacity="0.45" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="WHAT'S WRONG (AND WHAT ISN'T)" Style="{StaticResource SectionLabelStyle}" Margin="16,12,16,4" />
+                    <ListView x:Name="FindingList" Grid.Row="1" SelectionMode="None" IsItemClickEnabled="True" ItemClick="FindingList_ItemClick" Padding="8,0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:TraceFindingRow">
+                                <Grid ColumnSpacing="10" Padding="0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="{x:Bind Glyph}" Foreground="{x:Bind Brush}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{x:Bind Finding.Title}" Foreground="{x:Bind Brush}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind Finding.Detail}" FontSize="12" Opacity="0.78" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
