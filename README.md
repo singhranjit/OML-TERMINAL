@@ -2,7 +2,7 @@
 
 **The network and security engineer's cockpit for Windows.** SSH, Telnet, serial, RDP, VNC and SFTP in tabs and split
 views, plus a toolkit built for people who run networks: a visual traceroute that tells you where the problem really
-is, hop-by-hop device paths, continuous multi-host ping, MRTG-style SNMP traffic graphs, a packet analyzer, a Wi-Fi
+is, WireWalk hop-by-hop device paths, continuous multi-host ping, MRTG-style SNMP traffic graphs, a packet analyzer, a Wi-Fi
 analyzer with site-survey heatmaps, topology discovery, config backups with change detection, and firewall
 policy tooling for eight vendors.
 
@@ -20,7 +20,7 @@ License: [GPL-3.0-or-later](LICENSE)
 
 - [Install](#install)
 - [Sessions and terminals](#sessions-and-terminals)
-- [Visual Trace](#visual-trace) - traceroute, device path, multicast
+- [Visual Trace](#visual-trace) - traceroute, WireWalk device path, multicast
 - [Ping Monitor](#ping-monitor)
 - [Traffic Graphs (MRTG)](#traffic-graphs-mrtg)
 - [Packet Analyzer](#packet-analyzer)
@@ -93,11 +93,11 @@ A traceroute that draws the path and tells you, in plain English, where the prob
 - **Timeline:** a latency graph for any hop, with lost probes marked in red.
 - **Export:** copy a text report for a ticket, or save the hop statistics as CSV.
 
-### Through my devices: the hop-by-hop device path
+### WireWalk: follow the packet, device by device
 
 ![Device path](docs/screenshots/device-path.webp)
 
-Starting from a saved SSH session, OML Terminal traces the path through your own network the way you would by hand.
+WireWalk (the **Through my devices** mode) starts from a saved SSH session and traces the path through your own network the way you would by hand.
 It only runs read-only `show` commands.
 
 1. **Route lookup:** it looks up the route to the destination on each router (`show ip route <ip>`, the full table, NX-OS or Junos formats).
