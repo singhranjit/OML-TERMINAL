@@ -107,6 +107,11 @@ public sealed class SessionProfile
         return errors;
     }
 
+    /// <summary>An OML lab node console: nodes are rebuilt and their ports reused all the time, so a changed SSH host
+    /// key is re-trusted (with a visible notice) instead of blocking. Never saved - only links from OML set it.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsLabNode { get; set; }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public string ProtocolLabel => Protocol switch
     {

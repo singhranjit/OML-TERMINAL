@@ -7,7 +7,8 @@ namespace OmlTerminal.Core.Transports;
 /// <summary>SSH via SSH.NET using its default algorithm set (deliberately not restricted).</summary>
 public sealed class SshTransport(
     string host, int port, string username, string password, JumpHostGateway? gateway = null,
-    SshAuthMethod authMethod = SshAuthMethod.Password, string privateKeyPath = "", string privateKeyPassphrase = "")
+    SshAuthMethod authMethod = SshAuthMethod.Password, string privateKeyPath = "", string privateKeyPassphrase = "",
+    bool retrustChangedKey = false)
     : ITerminalTransport, ISshTunnelHost
 {
     private SshClient? _client;
@@ -61,8 +62,12 @@ public sealed class SshTransport(
             Timeout = TimeSpan.FromSeconds(15),
         };
         _client = new SshClient(info);
-        await _client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+        string? keyNotice = null;
+        await Ssh.HostKeyVerifier.ConnectAsync(_client, host, port, cancellationToken, n => keyNotice = n,
+            retrustChangedKey: retrustChangedKey).ConfigureAwait(false);
         _shell = _client.CreateShellStream("xterm-256color", (uint)cols, (uint)rows, 0, 0, 8192);
+        if (keyNotice is not null)
+            DataReceived?.Invoke(System.Text.Encoding.UTF8.GetBytes($"\x1b[33m{keyNotice}\x1b[0m\r\n"));
         _ = Task.Run(ReadLoop);
     }
 

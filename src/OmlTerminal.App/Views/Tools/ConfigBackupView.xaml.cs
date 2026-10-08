@@ -167,13 +167,17 @@ public sealed partial class ConfigBackupView : UserControl, IToolView
         ResultHeader.Text = $"RESULT · {ok}/{rows.Count} OK · {changed} changed · {(DateTime.Now - started).TotalSeconds:0}s";
     }
 
+    /// <summary>Applied immediately when already on the UI thread - the run summary is counted right after the last
+    /// device finishes, and a queued update would still be pending then (it showed "7/8 OK" with all 8 done).</summary>
     private void Update(BackupRow row, Action<BackupRow> change)
     {
-        DispatcherQueue.TryEnqueue(() =>
+        void Apply()
         {
             change(row);
             if (ReferenceEquals(ResultList.SelectedItem, row)) ShowPreview();
-        });
+        }
+        if (DispatcherQueue.HasThreadAccess) Apply();
+        else DispatcherQueue.TryEnqueue(Apply);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _cts?.Cancel();

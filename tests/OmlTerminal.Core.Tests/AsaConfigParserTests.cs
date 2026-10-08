@@ -190,4 +190,44 @@ public class AsaConfigParserTests
         var result = FirewallGenerators.Policies(FirewallVendor.PaloAlto, r.Rules, new PolicyOptions());
         Assert.Contains("rulebase security rules", result.Script);
     }
+
+    private const string ModernSyntax = """
+        object network WEB-01
+         host 172.16.10.20
+        object network APP
+         subnet 10.10.60.0 255.255.255.0
+        object-group network WEB-SERVERS
+         network-object object WEB-01
+         network-object host 172.16.10.21
+        object service HTTPS-8443
+         service tcp destination eq 8443
+        object-group service WEB-PORTS tcp
+         port-object eq www
+         port-object eq https
+        access-list OUTSIDE-IN extended permit tcp any object-group WEB-SERVERS eq https
+        access-list OUTSIDE-IN extended permit object HTTPS-8443 any object APP
+        access-list OUTSIDE-IN extended permit object-group WEB-PORTS any object-group WEB-SERVERS
+        access-list OUTSIDE-IN extended permit object NOT-DEFINED any any
+        access-group OUTSIDE-IN in interface outside
+        """;
+
+    [Fact]
+    public void NetworkGroupAfterSourceIsTheDestinationNotASourcePortGroup()
+    {
+        var rule = AsaConfigParser.Parse(ModernSyntax).Rules[0];
+        Assert.Equal(new[] { "any" }, rule.Sources);
+        Assert.Equal(new[] { "WEB-01", "172.16.10.21" }, rule.Destinations);
+        Assert.Equal(new[] { "tcp/443" }, rule.Services);
+    }
+
+    [Fact]
+    public void ServiceObjectOrGroupInPlaceOfTheProtocolBecomesTheRuleServices()
+    {
+        var r = AsaConfigParser.Parse(ModernSyntax);
+        Assert.Equal(3, r.Rules.Count);
+        Assert.Equal(new[] { "tcp/8443" }, r.Rules[1].Services);
+        Assert.Equal(new[] { "APP" }, r.Rules[1].Destinations);
+        Assert.Equal(new[] { "tcp/80", "tcp/443" }, r.Rules[2].Services);
+        Assert.Contains(r.Issues, i => i.Message.Contains("'NOT-DEFINED' isn't defined"));
+    }
 }

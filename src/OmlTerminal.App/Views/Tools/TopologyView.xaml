@@ -1,0 +1,153 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.TopologyView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Topology Mapper" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Start from one device: OML Terminal reads its CDP/LLDP neighbors over SSH, logs in to each neighboring switch, router and firewall with the same credentials, and draws what it finds. Read-only show commands only; hop, device and address-scope limits keep it inside the part of the network you meant." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
+            <Grid ColumnSpacing="12" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.2*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="1.6*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ComboBox x:Name="SeedBox" Header="Start from" HorizontalAlignment="Stretch" PlaceholderText="Pick a saved SSH session" DisplayMemberPath="Display" />
+                <NumberBox x:Name="DepthBox" Grid.Column="1" Header="Hops" Value="2" Minimum="0" Maximum="6" Width="80" SpinButtonPlacementMode="Compact" />
+                <NumberBox x:Name="MaxBox" Grid.Column="2" Header="Max logins" Value="50" Minimum="1" Maximum="500" Width="100" SpinButtonPlacementMode="Compact" />
+                <TextBox x:Name="ScopeBox" Grid.Column="3" Header="Only log in to addresses in" FontFamily="{StaticResource MonoFont}" FontSize="12.5"
+                         Text="10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16" />
+                <CheckBox x:Name="EndpointsCheck" Grid.Column="4" Content="Phones, APs, hosts too" VerticalAlignment="Bottom" />
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                    <Button x:Name="DiscoverButton" Style="{StaticResource AccentButtonStyle}" Click="Discover_Click" MinWidth="120">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE71B;" FontSize="12" />
+                            <TextBlock Text="Discover" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="StopButton" Click="Stop_Click" IsEnabled="False" ToolTipService.ToolTip="Stop" AutomationProperties.Name="Stop">
+                        <FontIcon Glyph="&#xE711;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+                <TextBlock x:Name="StatusText" Grid.Row="1" Grid.ColumnSpan="6" FontSize="12.5" Opacity="0.8" TextWrapping="Wrap"
+                           Text="Credentials come from the starting session (or its Password Manager entry) and are reused for every neighbor, which suits TACACS/RADIUS-backed networks." />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource ToolCardStyle}" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Padding="14,8" ColumnSpacing="14" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="9" Height="9" Fill="{StaticResource OmlOrangeBrush}" /><TextBlock Text="start" FontSize="11.5" Opacity="0.7" /></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="9" Height="9" Fill="{StaticResource OmlMintBrush}" /><TextBlock Text="mapped" FontSize="11.5" Opacity="0.7" /></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="9" Height="9" Fill="{StaticResource OmlSkyBrush}" /><TextBlock Text="in progress" FontSize="11.5" Opacity="0.7" /></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="9" Height="9" Fill="{StaticResource OmlRoseBrush}" /><TextBlock Text="login failed" FontSize="11.5" Opacity="0.7" /></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="9" Height="9" Fill="{StaticResource StatusIdleBrush}" /><TextBlock Text="seen, not logged in to" FontSize="11.5" Opacity="0.7" /></StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                            <Button Click="ZoomOut_Click" ToolTipService.ToolTip="Zoom out" AutomationProperties.Name="Zoom out" Padding="8,4"><FontIcon Glyph="&#xE71F;" FontSize="12" /></Button>
+                            <Button Click="ZoomIn_Click" ToolTipService.ToolTip="Zoom in" AutomationProperties.Name="Zoom in" Padding="8,4"><FontIcon Glyph="&#xE8A3;" FontSize="12" /></Button>
+                            <Button Click="Fit_Click" ToolTipService.ToolTip="Fit the whole map" AutomationProperties.Name="Fit" Padding="8,4"><FontIcon Glyph="&#xE9A6;" FontSize="12" /></Button>
+                            <Button Click="Relayout_Click" ToolTipService.ToolTip="Undo manual moves and lay out again" AutomationProperties.Name="Re-layout" Padding="8,4"><FontIcon Glyph="&#xE72C;" FontSize="12" /></Button>
+                        </StackPanel>
+                    </Grid>
+                    <ScrollViewer x:Name="MapScroll" Grid.Row="1" ZoomMode="Enabled" MinZoomFactor="0.2" MaxZoomFactor="3"
+                                  HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Canvas x:Name="MapCanvas" Background="{StaticResource TerminalBackgroundBrush}" Width="800" Height="500" Tapped="MapCanvas_Tapped" />
+                    </ScrollViewer>
+                    <TextBlock x:Name="EmptyText" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.5" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"
+                               Text="Pick a starting device and click Discover. Drag devices to tidy the map; scroll with Ctrl to zoom." />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="DEVICE" Style="{StaticResource SectionLabelStyle}" />
+                        <TextBlock x:Name="NodeName" Text="Nothing selected" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="NodeIp" FontFamily="{StaticResource MonoFont}" FontSize="12.5" Opacity="0.8" IsTextSelectionEnabled="True" />
+                        <TextBlock x:Name="NodePlatform" FontSize="12" Opacity="0.65" TextWrapping="Wrap" />
+                        <TextBlock x:Name="NodeStatusText" FontSize="12" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="ConnectButton" Click="Connect_Click" IsEnabled="False">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE756;" FontSize="12" /><TextBlock Text="Connect" /></StackPanel>
+                        </Button>
+                        <Button x:Name="SaveOneButton" Click="SaveOne_Click" IsEnabled="False" ToolTipService.ToolTip="Add to your sessions under Discovered/">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE710;" FontSize="12" /><TextBlock Text="Save session" /></StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <Grid Grid.Row="2" RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="LINKS" Style="{StaticResource SectionLabelStyle}" />
+                        <ListView x:Name="LinkList" Grid.Row="1" SelectionMode="None" Padding="0">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Text="{x:Bind}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextWrapping="Wrap" Padding="0,2" />
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                    <StackPanel Grid.Row="3" Spacing="8">
+                        <TextBlock Text="MAP" Style="{StaticResource SectionLabelStyle}" />
+                        <Button Click="SaveAll_Click" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Every discovered device with a management address becomes a session under Discovered/">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE74E;" FontSize="12" /><TextBlock Text="Save all as sessions" /></StackPanel>
+                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Click="CopyCsv_Click" ToolTipService.ToolTip="Copy the link list as CSV (device, port, device, port)">
+                                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8C8;" FontSize="12" /><TextBlock Text="CSV" /></StackPanel>
+                            </Button>
+                            <Button Click="SaveDot_Click" ToolTipService.ToolTip="Save as Graphviz DOT">
+                                <TextBlock Text="DOT" />
+                            </Button>
+                            <Button Click="SavePng_Click" ToolTipService.ToolTip="Save the map as a PNG image">
+                                <TextBlock Text="PNG" />
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

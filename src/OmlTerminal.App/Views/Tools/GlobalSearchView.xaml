@@ -1,0 +1,129 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.GlobalSearchView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Global Search" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Where is it configured? Search every saved session, config backup, session log and Change Guard capture at once. An IP also finds the subnets, ACL wildcards and ranges that contain it; a MAC matches in any notation." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
+            <Grid RowSpacing="10" ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBox x:Name="QueryBox" FontFamily="{StaticResource MonoFont}" FontSize="15" PlaceholderText="10.20.30.40   ·   10.20.30.0/24   ·   0050.56a1.0001   ·   any text"
+                         KeyDown="QueryBox_KeyDown" TextChanged="QueryBox_TextChanged" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="SearchButton" Style="{StaticResource AccentButtonStyle}" Click="Search_Click" MinWidth="110">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE721;" FontSize="12" />
+                            <TextBlock Text="Search" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="CancelButton" Click="Cancel_Click" IsEnabled="False" ToolTipService.ToolTip="Stop" AutomationProperties.Name="Stop">
+                        <FontIcon Glyph="&#xE711;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="18">
+                    <TextBlock x:Name="QueryKindText" FontSize="12" Foreground="{StaticResource OmlSkyBrush}" VerticalAlignment="Center" MinWidth="230" />
+                    <CheckBox x:Name="SessionsCheck" Content="Sessions" IsChecked="True" />
+                    <CheckBox x:Name="BackupsCheck" Content="Config backups" IsChecked="True" />
+                    <CheckBox x:Name="AllVersionsCheck" Content="older backup versions too" />
+                    <CheckBox x:Name="LogsCheck" Content="Session logs" IsChecked="True" />
+                    <CheckBox x:Name="SnapshotsCheck" Content="Change Guard captures" IsChecked="True" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource ToolCardStyle}" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="StatusText" Text="RESULTS" Style="{StaticResource SectionLabelStyle}" Margin="16,12" />
+                    <ListView x:Name="ResultList" Grid.Row="1" SelectionMode="Single" SelectionChanged="ResultList_SelectionChanged" Padding="4,0,4,8">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:SearchHitRow">
+                                <Grid ColumnSpacing="10" Padding="4,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="72" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Style="{StaticResource BadgeBorderStyle}" Height="20" VerticalAlignment="Top" Margin="0,2,0,0">
+                                        <TextBlock Text="{x:Bind KindLabel}" Style="{StaticResource BadgeTextStyle}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind Hit.Match}" FontSize="11.5" Foreground="{x:Bind MatchBrush}" />
+                                        </Grid>
+                                        <TextBlock Text="{x:Bind Hit.Line}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Hit.Context}" FontSize="11.5" Opacity="0.55" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ContextVisibility}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid ColumnSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PreviewTitle" Text="PREVIEW" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <Button x:Name="OpenSessionButton" Click="OpenSession_Click" IsEnabled="False" ToolTipService.ToolTip="Connect to this device">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE756;" FontSize="12" />
+                                    <TextBlock Text="Connect" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShowFileButton" Click="ShowFile_Click" IsEnabled="False" ToolTipService.ToolTip="Show the file in Explorer" AutomationProperties.Name="Show file">
+                                <FontIcon Glyph="&#xE838;" FontSize="12" />
+                            </Button>
+                            <Button Click="CopyLine_Click" ToolTipService.ToolTip="Copy the matching line" AutomationProperties.Name="Copy line">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="12" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <TextBox x:Name="PreviewBox" Grid.Row="1" Style="{StaticResource MonoOutputStyle}" PlaceholderText="Select a result to see it in context." />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

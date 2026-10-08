@@ -1,0 +1,132 @@
+<UserControl
+    x:Class="OmlTerminal.App.Views.Tools.StructuredOutputView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OmlTerminal.App.Views.Tools">
+
+    <Grid Padding="24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="2">
+            <TextBlock Text="Structured Output" Style="{StaticResource ToolTitleStyle}" />
+            <TextBlock Style="{StaticResource SubtleTextStyle}" FontSize="13" TextWrapping="Wrap"
+                       Text="Turn 'show' output into a table you can sort, filter and export. Knows interfaces, VLANs, CDP/LLDP, BGP, OSPF, HSRP, routes, MAC and ARP tables across Cisco, Juniper, FortiGate and Linux - anything else column-aligned is auto-detected." />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Source -->
+            <Border Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="SOURCE" Style="{StaticResource SectionLabelStyle}" />
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                        <Button Click="Grab_Click" ToolTipService.ToolTip="Take the last command's output from the active terminal tab">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE756;" FontSize="12" />
+                                <TextBlock Text="From terminal" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="Paste_Click" ToolTipService.ToolTip="Paste from the clipboard">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE77F;" FontSize="12" />
+                                <TextBlock Text="Paste" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <ComboBox x:Name="DeviceBox" Grid.Row="2" Header="Or run on a saved SSH session" HorizontalAlignment="Stretch"
+                              PlaceholderText="Pick a device" DisplayMemberPath="Display" />
+                    <Grid Grid.Row="3" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="CommandBox" FontFamily="{StaticResource MonoFont}" FontSize="12.5" Text="show ip interface brief" KeyDown="CommandBox_KeyDown" />
+                        <Button x:Name="RunButton" Grid.Column="1" Content="Run" Click="Run_Click" />
+                    </Grid>
+
+                    <TextBox x:Name="InputBox" Grid.Row="4" Style="{StaticResource MonoInputStyle}"
+                             PlaceholderText="...or paste command output here" TextChanged="InputBox_TextChanged" />
+                    <TextBlock x:Name="SourceStatus" Grid.Row="5" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <!-- Table -->
+            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="TableTitle" Text="NO TABLE YET" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock x:Name="TableInfo" FontSize="12" Opacity="0.65" />
+                        </StackPanel>
+                        <TextBox x:Name="FilterBox" Grid.Column="1" PlaceholderText="Filter rows" TextChanged="FilterBox_TextChanged" VerticalAlignment="Center" />
+                        <ComboBox x:Name="SortBox" Grid.Column="2" PlaceholderText="Sort by" HorizontalAlignment="Stretch" SelectionChanged="SortBox_SelectionChanged" VerticalAlignment="Center" />
+                        <ToggleButton x:Name="DescendingToggle" Grid.Column="3" Click="Descending_Click" ToolTipService.ToolTip="Descending" AutomationProperties.Name="Descending" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE74B;" FontSize="12" />
+                        </ToggleButton>
+                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button Click="CopyCsv_Click" ToolTipService.ToolTip="Copy as CSV (pastes into Excel)" AutomationProperties.Name="Copy as CSV">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="12" />
+                            </Button>
+                            <Button Click="CopyMarkdown_Click" ToolTipService.ToolTip="Copy as a Markdown table (tickets, wikis, chat)" AutomationProperties.Name="Copy as Markdown">
+                                <FontIcon Glyph="&#xE8A5;" FontSize="12" />
+                            </Button>
+                            <Button Click="SaveCsv_Click" ToolTipService.ToolTip="Save as .csv" AutomationProperties.Name="Save as CSV">
+                                <FontIcon Glyph="&#xE74E;" FontSize="12" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock x:Name="HeaderRow" Grid.Row="1" FontFamily="{StaticResource MonoFont}" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource OmlSkyBrush}" Margin="12,0,0,0" TextWrapping="NoWrap" />
+
+                    <ListView x:Name="RowList" Grid.Row="2" SelectionMode="Extended" IsItemClickEnabled="False"
+                              ScrollViewer.HorizontalScrollMode="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="MinHeight" Value="24" />
+                                <Setter Property="Padding" Value="12,0,12,0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:TableRowItem">
+                                <TextBlock Text="{x:Bind Text}" Foreground="{x:Bind Brush}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" TextWrapping="NoWrap" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock x:Name="EmptyText" Grid.Row="2" Opacity="0.55" TextWrapping="Wrap" Margin="12"
+                               Text="Pick a source on the left. Tip: run a command in a terminal tab, then click 'From terminal'." />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

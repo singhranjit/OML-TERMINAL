@@ -61,6 +61,9 @@ public static partial class ConfigBackup
 
             output = Normalize(output);
             if (output.Trim().Length == 0) throw new InvalidOperationException("Device returned no output - check the preset and user privileges.");
+            // Saving "% Invalid input" as a backup would bury the real history behind a bogus "changed" entry.
+            if (DeviceSession.IsCommandError(output))
+                throw new InvalidOperationException($"The device rejected the command ({output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 1 && l != "^")}) - pick the command set for this vendor.");
 
             var (path, previous) = TargetPath(rootDirectory, device, preset.FileExtension);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -101,20 +104,7 @@ public static partial class ConfigBackup
     {
         using var shell = ssh.Client.CreateShellStream("vt100", 512, 200, 0, 0, 1 << 16);
         var text = await ReadUntilQuietAsync(shell, TimeSpan.FromSeconds(2), ct).ConfigureAwait(false); // banner + first prompt
-
-        // Landed at "sw1>"? Use the saved enable password to reach privileged mode before "show running-config".
-        if (enablePassword.Length > 0)
-        {
-            var enable = new LoginAutomator("", "", enablePassword, answerLogin: false);
-            for (int step = 0; step < 3 && !enable.IsDone; step++)
-            {
-                var reply = enable.OnOutput(text);
-                if (reply is null) break;
-                shell.Write(reply);
-                shell.Flush();
-                text = await ReadUntilQuietAsync(shell, TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
-            }
-        }
+        await EnterEnableAsync(shell, text, enablePassword, ct).ConfigureAwait(false);
         string last = "";
         for (int i = 0; i < commands.Count; i++)
         {
@@ -125,6 +115,23 @@ public static partial class ConfigBackup
         }
         try { shell.WriteLine("exit"); } catch { }
         return last;
+    }
+
+    /// <summary>Landed at "sw1>"? Uses the saved enable password to reach privileged mode. Returns the last text read
+    /// (ending in the current prompt).</summary>
+    public static async Task<string> EnterEnableAsync(Renci.SshNet.ShellStream shell, string text, string enablePassword, CancellationToken ct)
+    {
+        if (enablePassword.Length == 0) return text;
+        var enable = new LoginAutomator("", "", enablePassword, answerLogin: false);
+        for (int step = 0; step < 3 && !enable.IsDone; step++)
+        {
+            var reply = enable.OnOutput(text);
+            if (reply is null) break;
+            shell.Write(reply);
+            shell.Flush();
+            text = await ReadUntilQuietAsync(shell, TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+        }
+        return text;
     }
 
     /// <summary>Reads from an interactive shell stream until it's been quiet for <paramref name="idle"/>, answering
@@ -226,7 +233,7 @@ public static partial class ConfigBackup
     {
         var t = line.TrimStart();
         return t.StartsWith("#conf_file_ver=") || t.StartsWith("! Last configuration change") || t.StartsWith("! NVRAM config last updated")
-            || t.StartsWith("Current configuration :") || t.StartsWith("## Last commit:") || t.Contains(" ENC ");
+            || t.StartsWith("Current configuration :") || t.StartsWith("Building configuration") || t.StartsWith("## Last commit:") || t.Contains(" ENC ");
     }
 
     /// <summary>Order-insensitive line diff (what was added / removed) - readable for configs, where a moved line

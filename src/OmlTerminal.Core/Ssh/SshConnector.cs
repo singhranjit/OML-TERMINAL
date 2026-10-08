@@ -52,7 +52,7 @@ public static class SshConnector
         var client = new SshClient(new ConnectionInfo(host, port, p.Username, AuthFor(p)) { Timeout = TimeSpan.FromSeconds(15) });
         try
         {
-            await client.ConnectAsync(ct).ConfigureAwait(false);
+            await HostKeyVerifier.ConnectAsync(client, p.Host, p.Port, ct).ConfigureAwait(false);
         }
         catch
         {

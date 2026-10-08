@@ -123,6 +123,7 @@ public sealed partial class MainWindow : Window
             Settings = _vm.Settings,
             SaveSettings = _vm.SaveSettings,
             OpenSession = OpenSession,
+            ActiveTerminalText = () => (SelectedTerminalTab() ?? _lastTerminal)?.Session.Engine.GetBufferText(),
         };
         ToolsList.ItemsSource = ToolCatalog.All;
         BuildToolsMenu();
@@ -950,6 +951,19 @@ public sealed partial class MainWindow : Window
             }
             menu.Items.Add(tools);
         }
+        if (p.IsSshBased && !string.IsNullOrWhiteSpace(p.Host))
+        {
+            var forget = new MenuFlyoutItem { Text = "Forget saved host key" };
+            forget.Click += (_, _) =>
+            {
+                int n = Core.Ssh.HostKeyVerifier.Default.Forget(p.Host, p.Port);
+                if (p.UseJumpHost && !string.IsNullOrWhiteSpace(p.JumpHost)) n += Core.Ssh.HostKeyVerifier.Default.Forget(p.JumpHost, p.JumpPort);
+                _ = MessageAsync("Host key", n > 0
+                    ? $"Forgot the saved host key for {p.Host}:{p.Port}{(p.UseJumpHost ? $" and its jump host {p.JumpHost}:{p.JumpPort}" : "")}. The next connection will save the key offered then."
+                    : $"No host key was saved for {p.Host}:{p.Port}.");
+            };
+            menu.Items.Add(forget);
+        }
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(delete);
         menu.ShowAt(target, at);
@@ -1007,6 +1021,12 @@ public sealed partial class MainWindow : Window
     }
 
     // ---------- command palette ----------
+
+    private void GlobalSearchAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        OpenTool("search", v => ((GlobalSearchView)v).FocusSearch());
+    }
 
     private void PaletteAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -1669,7 +1689,7 @@ public sealed partial class MainWindow : Window
                 {
                     Name = $"{labLink.LabName}/{node.Name}", Folder = "OML Labs",
                     Protocol = node.ConsoleType == OmlConsoleType.Ssh ? ProtocolKind.Ssh : ProtocolKind.Telnet,
-                    Host = omlHostName, Port = consolePort,
+                    Host = omlHostName, Port = consolePort, IsLabNode = true,
                 });
                 break;
             case OmlConsoleType.Vnc when node.VncWsPort is not null:
@@ -2202,6 +2222,10 @@ public sealed partial class MainWindow : Window
         "backup" => "Backup",
         "cliguide" => "CLI Guide",
         "netservices" => "Servers",
+        "topology" => "Topology",
+        "tables" => "Tables",
+        "changeguard" => "Change Guard",
+        "search" => "Search",
         _ => t.Title,
     };
 

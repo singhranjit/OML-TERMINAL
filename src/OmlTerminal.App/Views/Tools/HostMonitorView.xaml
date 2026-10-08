@@ -101,8 +101,8 @@
                                 <ColumnDefinition Width="24" />
                                 <ColumnDefinition Width="2*" />
                                 <ColumnDefinition Width="170" />
-                                <ColumnDefinition Width="150" />
-                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="230" />
+                                <ColumnDefinition Width="90" />
                                 <ColumnDefinition Width="2*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="1" Text="DEVICE" Style="{StaticResource SectionLabelStyle}" />
@@ -119,8 +119,8 @@
                                             <ColumnDefinition Width="24" />
                                             <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="170" />
-                                            <ColumnDefinition Width="150" />
-                                            <ColumnDefinition Width="70" />
+                                            <ColumnDefinition Width="230" />
+                                            <ColumnDefinition Width="90" />
                                             <ColumnDefinition Width="2*" />
                                         </Grid.ColumnDefinitions>
                                         <Ellipse Width="9" Height="9" Fill="{x:Bind StatusBrush, Mode=OneWay}" VerticalAlignment="Center" />

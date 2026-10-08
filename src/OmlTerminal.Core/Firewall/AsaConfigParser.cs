@@ -101,10 +101,11 @@ public static class AsaConfigParser
         }
 
         var rules = new List<PolicyRule>();
+        var svcObjects = objectSvcs.GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Last(), StringComparer.OrdinalIgnoreCase);
         foreach (var (lineNo, tokens) in aclLines)
         {
             var iface = aclInterfaces.GetValueOrDefault(tokens[1], "");
-            var rule = ParseAce(lineNo, tokens, iface, addrGroups, svcGroups, issues);
+            var rule = ParseAce(lineNo, tokens, iface, addrGroups, svcGroups, svcObjects, issues);
             if (rule is not null) rules.Add(rule);
         }
 
@@ -254,17 +255,31 @@ public static class AsaConfigParser
         return "";
     }
 
-    private static PolicyRule? ParseAce(int lineNo, string[] t, string sourceInterface, Dictionary<string, List<string>> addrGroups, Dictionary<string, List<string>> svcGroups, List<ParseIssue> issues)
+    private static PolicyRule? ParseAce(int lineNo, string[] t, string sourceInterface, Dictionary<string, List<string>> addrGroups,
+        Dictionary<string, List<string>> svcGroups, Dictionary<string, ServiceObject> svcObjects, List<ParseIssue> issues)
     {
         // access-list <name> extended {permit|deny} <proto> <src> [<src-port>] <dst> [<dst-port>] [log] [inactive]
+        // ASA 8.3+ also allows a service object/group in place of the protocol: "permit object HTTPS-8443 <src> <dst>".
         int idx = 3;
         if (idx >= t.Length) return null;
         var actionTok = t[idx++].ToLowerInvariant();
         if (actionTok is not ("permit" or "deny")) { issues.Add(new ParseIssue(lineNo, string.Join(' ', t), "expected 'permit' or 'deny'")); return null; }
         if (idx >= t.Length) return null;
         var proto = t[idx++].ToLowerInvariant();
+        List<string>? namedServices = null;
+        if (proto is "object" or "object-group" && idx < t.Length)
+        {
+            var svcName = t[idx++];
+            namedServices = proto == "object" ? ServiceTokens(svcObjects, svcName, lineNo, t, issues) : svcGroups.GetValueOrDefault(svcName);
+            if (namedServices is not { Count: > 0 })
+            {
+                issues.Add(new ParseIssue(lineNo, string.Join(' ', t), $"service {proto} '{svcName}' isn't defined earlier in the config (or has no destination port) - rule skipped"));
+                return null;
+            }
+            proto = "service";
+        }
         bool portCapable = proto is "tcp" or "udp";
-        if (proto is not ("tcp" or "udp" or "icmp" or "ip"))
+        if (proto is not ("tcp" or "udp" or "icmp" or "ip" or "service"))
         {
             issues.Add(new ParseIssue(lineNo, string.Join(' ', t), $"protocol '{proto}' isn't tcp/udp/icmp/ip - rule skipped, recreate manually"));
             return null;
@@ -272,14 +287,14 @@ public static class AsaConfigParser
 
         var src = ConsumeAddress(t, ref idx, addrGroups, out var srcOk);
         if (!srcOk) { issues.Add(new ParseIssue(lineNo, string.Join(' ', t), "couldn't parse the source address - rule skipped")); return null; }
-        var srcPort = portCapable ? ConsumePort(t, ref idx, proto, svcGroups, out var srcPortOk) : [];
+        var srcPort = portCapable ? ConsumePort(t, ref idx, proto, svcGroups, addrGroups, out var srcPortOk) : [];
         if (portCapable && srcPort is null) { issues.Add(new ParseIssue(lineNo, string.Join(' ', t), "source port uses an operator with no direct equivalent (gt/lt/neq), or references a service-group not defined earlier in the config - rule skipped")); return null; }
         if (srcPort is { Count: > 0 } && !srcPort.Contains("any"))
             issues.Add(new ParseIssue(lineNo, string.Join(' ', t), $"source-port restriction ({string.Join(",", srcPort)}) has no equivalent on the destination-only Services model used here and was dropped - the migrated rule matches that service on any source port"));
 
         var dst = ConsumeAddress(t, ref idx, addrGroups, out var dstOk);
         if (!dstOk) { issues.Add(new ParseIssue(lineNo, string.Join(' ', t), "couldn't parse the destination address - rule skipped")); return null; }
-        var dstPort = portCapable ? ConsumePort(t, ref idx, proto, svcGroups, out var dstPortOk) : [];
+        var dstPort = portCapable ? ConsumePort(t, ref idx, proto, svcGroups, addrGroups, out var dstPortOk) : [];
         if (portCapable && dstPort is null) { issues.Add(new ParseIssue(lineNo, string.Join(' ', t), "destination port uses an operator with no direct equivalent (gt/lt/neq), or references a service-group not defined earlier in the config - rule skipped")); return null; }
 
         bool log = t.Skip(idx).Any(x => x.Equals("log", StringComparison.OrdinalIgnoreCase));
@@ -289,6 +304,7 @@ public static class AsaConfigParser
         {
             "icmp" => ["icmp"],
             "ip" => ["any"],
+            "service" => namedServices!,
             _ => dstPort is { Count: > 0 } ? dstPort! : ["any"],
         };
 
@@ -303,6 +319,22 @@ public static class AsaConfigParser
             Services = services,
             Log = log,
             Enabled = !inactive,
+        };
+    }
+
+    /// <summary>A named "object service" as rule service tokens ("tcp/8443"). Null when it isn't defined.</summary>
+    private static List<string>? ServiceTokens(Dictionary<string, ServiceObject> objects, string name, int lineNo, string[] t, List<ParseIssue> issues)
+    {
+        if (!objects.TryGetValue(name, out var s)) return null;
+        if (s.SourcePorts.Length > 0)
+            issues.Add(new ParseIssue(lineNo, string.Join(' ', t), $"service object '{name}' restricts the source port ({s.SourcePorts}), which the destination-only Services model here drops - the migrated rule matches any source port"));
+        return s.Protocol switch
+        {
+            ServiceProtocol.Icmp => ["icmp"],
+            ServiceProtocol.Tcp => [$"tcp/{s.DestinationPorts}"],
+            ServiceProtocol.Udp => [$"udp/{s.DestinationPorts}"],
+            ServiceProtocol.TcpUdp => [$"tcp/{s.DestinationPorts}", $"udp/{s.DestinationPorts}"],
+            _ => null,
         };
     }
 
@@ -335,7 +367,8 @@ public static class AsaConfigParser
     /// can contribute its own members' protocols directly. Null (not an empty list) means "an unsupported
     /// operator was present" - the caller must distinguish that from "no port restriction" (empty list, i.e.
     /// match any port for the ACE's own protocol).</summary>
-    private static List<string>? ConsumePort(string[] t, ref int idx, string proto, Dictionary<string, List<string>> svcGroups, out bool ok)
+    private static List<string>? ConsumePort(string[] t, ref int idx, string proto, Dictionary<string, List<string>> svcGroups,
+        Dictionary<string, List<string>> addrGroups, out bool ok)
     {
         ok = true;
         if (idx >= t.Length) return [];
@@ -344,6 +377,9 @@ public static class AsaConfigParser
         if (tok == "object-group" && idx + 1 < t.Length)
         {
             var name = t[idx + 1];
+            // "permit tcp any object-group WEB-SERVERS eq https": after the source, a NETWORK group is the destination
+            // address, not a source-port group - leave it for ConsumeAddress.
+            if (!svcGroups.ContainsKey(name) && addrGroups.ContainsKey(name)) return [];
             idx += 2;
             // A group used as a port-spec must resolve to real members - defaulting to "any" here would
             // silently widen the rule to every port, which is exactly the kind of guess this parser avoids.

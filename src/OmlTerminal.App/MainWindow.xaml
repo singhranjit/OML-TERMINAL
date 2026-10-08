@@ -19,6 +19,7 @@
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Modifiers="Control" Key="K" Invoked="PaletteAccelerator_Invoked" />
             <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="FindAccelerator_Invoked" />
+            <KeyboardAccelerator Modifiers="Control,Shift" Key="G" Invoked="GlobalSearchAccelerator_Invoked" />
         </Grid.KeyboardAccelerators>
 
         <!-- Custom title bar: brand + menu, empty middle is the drag region -->

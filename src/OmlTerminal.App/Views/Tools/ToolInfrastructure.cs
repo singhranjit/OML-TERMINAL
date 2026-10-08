@@ -28,6 +28,8 @@ public sealed class ToolContext
     public required Action SaveSettings { get; init; }
     /// <summary>Opens a new terminal tab running the given profile (used by "SSH to this host" style actions).</summary>
     public required Action<SessionProfile> OpenSession { get; init; }
+    /// <summary>Scrollback text of the active terminal tab (or the last one used), or null when there isn't one.</summary>
+    public Func<string?> ActiveTerminalText { get; init; } = () => null;
 
     public IReadOnlyList<SessionProfile> SshSessions() => Sessions().Where(s => s.IsSshBased).OrderBy(s => s.Display, StringComparer.OrdinalIgnoreCase).ToList();
 }
@@ -45,6 +47,8 @@ public static class ToolCatalog
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "", "Network", c => new SubnetView()),
         new("capture", "Packet Capture", "tcpdump / FortiGate sniffer / tshark → pcap", "", "Security", c => new CaptureView(c)),
         new("hostmonitor", "Host Monitor", "Live load, memory, disk and uptime for saved SSH sessions", "", "Network", c => new HostMonitorView(c)),
+        new("topology", "Topology Mapper", "Discover the network from one device over CDP/LLDP and draw a live, clickable map", "", "Network", c => new TopologyView(c)),
+        new("tables", "Structured Output", "Turn show-command output into a sortable, filterable table - CSV/Markdown export", "", "Network", c => new StructuredOutputView(c)),
         new("copilot", "AI Copilot", "Local-LLM assistant with its own connection to a device - approves risky commands with you", "", "AI", c => new CopilotView(c)),
         new("scripts", "Scripts", "Run your own PowerShell/Python/Bash scripts as external processes, with session context", "", "Reference", c => new ScriptsView(c)),
         new("fwobjects", "Firewall Object Builder", "Bulk addresses, FQDNs & services for 8 firewall vendors", "", "Security", c => new FirewallBuilderView(c)),
@@ -53,6 +57,8 @@ public static class ToolCatalog
         new("migration", "Config Migration", "Move objects, services and rules between Cisco ASA/FTD, FortiGate, Palo Alto, Juniper SRX and pfSense", "", "Security", c => new MigrationView(c)),
         new("backup", "Config Backup", "Pull running configs over SSH, detect changes, diff", "", "Security", c => new ConfigBackupView(c)),
         new("scheduledbackups", "Scheduled Backups", "Recurring config backups with drift alerts, while the app is open", "", "Security", c => new ScheduledBackupsView(c)),
+        new("changeguard", "Change Guard", "Pre/post change checks: what went down, rerouted or disappeared, in plain English", "", "Security", c => new ChangeGuardView(c)),
+        new("search", "Global Search", "Find an IP, subnet, MAC or text across every backup, log, capture and session (Ctrl+Shift+G)", "", "Reference", c => new GlobalSearchView(c)),
         new("cliguide", "CLI Guide", "Searchable command reference for every supported vendor", "", "Reference", c => new CliGuideView(c)),
         new("netservices", "Network Services", "TFTP/FTP servers & client, Syslog, SNTP, DHCP (tftpd64-style)", "", "Servers", c => new NetworkServicesView(c)),
     ];

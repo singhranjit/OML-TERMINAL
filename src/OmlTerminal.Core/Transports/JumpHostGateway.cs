@@ -28,7 +28,7 @@ public sealed class JumpHostGateway(string jumpHost, int jumpPort, string jumpUs
         var client = new SshClient(info);
         try
         {
-            await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            await Ssh.HostKeyVerifier.ConnectAsync(client, jumpHost, jumpPort, cancellationToken).ConfigureAwait(false);
             var forward = new ForwardedPortLocal("127.0.0.1", 0, targetHost, (uint)targetPort);
             client.AddForwardedPort(forward);
             forward.Start();

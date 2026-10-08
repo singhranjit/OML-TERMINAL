@@ -39,7 +39,15 @@ public sealed class SftpSession(string host, int port, string username, string p
             Timeout = TimeSpan.FromSeconds(15),
         };
         var client = new SftpClient(info);
-        await Task.Run(client.Connect, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await Ssh.HostKeyVerifier.ConnectAsync(client, host, port, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            client.Dispose();
+            throw;
+        }
         _client = client;
     }
 

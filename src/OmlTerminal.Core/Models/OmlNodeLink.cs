@@ -93,6 +93,7 @@ public static partial class OmlNodeLink
             Port = port,
             Username = Clean(Str(root, "username"), 128) ?? "",
             Password = Str(root, "password") is { Length: <= 256 } pw ? pw : "",
+            IsLabNode = true,
         };
         return profile.Validate().Count == 0 ? new OmlLinkResult(profile, profile.Name, source, null) : Fail("Link describes an invalid session.");
     }

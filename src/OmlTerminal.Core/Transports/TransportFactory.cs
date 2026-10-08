@@ -22,7 +22,7 @@ public static class TransportFactory
             ProtocolKind.Ssh when p.Engine == TransportEngine.OpenSsh =>
                 new OpenSshTransport(p, p.X11Forwarding ? x11Display ?? "127.0.0.1:0.0" : null),
             ProtocolKind.Ssh => new SshTransport(p.Host, p.Port, p.Username, p.Password, gateway,
-                p.AuthMethod, p.PrivateKeyPath, p.PrivateKeyPassphrase),
+                p.AuthMethod, p.PrivateKeyPath, p.PrivateKeyPassphrase, retrustChangedKey: p.IsLabNode),
             ProtocolKind.Telnet => new TelnetTransport(p.Host, p.Port, gateway),
             ProtocolKind.Serial => new SerialTransport(p.SerialPortName, p.BaudRate),
             ProtocolKind.Local => new LocalTransport(p.LocalShellPath, null, p.LocalShellArgs, ShellCatalog.EnvironmentFor(p.LocalShellPath)),
