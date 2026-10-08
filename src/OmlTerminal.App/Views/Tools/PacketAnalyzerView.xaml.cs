@@ -177,6 +177,7 @@ public sealed partial class PacketAnalyzerView : UserControl, IToolView
         ShowDetails(null);
         RefreshSide();
         UpdateCounts();
+        if (_capture is null) StatusText.Text = "Cleared.";
     }
 
     // ---------- files ----------

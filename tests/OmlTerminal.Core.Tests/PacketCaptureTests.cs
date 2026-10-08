@@ -224,6 +224,8 @@ public class DisplayFilterTests
     [InlineData("frame.len > 60", false, true, false)]
     [InlineData("(tcp or dns) and not ip.dst == 10.0.0.53", true, false, false)]
     [InlineData("\"Who has\"", false, false, true)]
+    [InlineData("dns.qry.name", false, true, false)]
+    [InlineData("tls.sni || http.host", false, false, false)]
     public void MatchesLikeWireshark(string filter, bool https, bool dns, bool arp)
     {
         var f = DisplayFilter.Parse(filter);

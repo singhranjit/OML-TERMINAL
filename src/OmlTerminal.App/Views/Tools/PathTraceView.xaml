@@ -116,15 +116,11 @@
         <Grid Grid.Row="4" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="380" />
+                <ColumnDefinition Width="420" />
             </Grid.ColumnDefinitions>
 
             <!-- PC mode: hop table + timeline -->
-            <Grid x:Name="PcDetails" RowSpacing="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="190" />
-                </Grid.RowDefinitions>
+            <Grid x:Name="PcDetails">
                 <Border Style="{StaticResource ToolCardStyle}" Padding="0">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -151,7 +147,7 @@
                             <TextBlock Grid.Column="5" Text="BEST" Style="{StaticResource SectionLabelStyle}" />
                             <TextBlock Grid.Column="6" Text="WORST" Style="{StaticResource SectionLabelStyle}" />
                             <TextBlock Grid.Column="7" Text="JITTER" Style="{StaticResource SectionLabelStyle}" />
-                            <TextBlock Grid.Column="8" Text="LATENCY RANGE (BEST · AVG · WORST)" Style="{StaticResource SectionLabelStyle}" />
+                            <TextBlock Grid.Column="8" Text="RANGE" ToolTipService.ToolTip="Best to worst, with the average marked" Style="{StaticResource SectionLabelStyle}" />
                         </Grid>
                         <ListView x:Name="HopList" Grid.Row="1" SelectionMode="Single" SelectionChanged="HopList_SelectionChanged" Padding="4">
                             <ListView.ItemTemplate>
@@ -182,22 +178,12 @@
                                         <Grid Grid.Column="8" Height="14" VerticalAlignment="Center">
                                             <Border Height="2" Background="{StaticResource HairlineBrush}" VerticalAlignment="Center" />
                                             <Border Height="8" CornerRadius="4" Background="{x:Bind BarBrush}" Opacity="0.55" HorizontalAlignment="Left" Margin="{x:Bind BarMargin}" Width="{x:Bind BarWidth}" />
-                                            <Border Width="3" Height="14" CornerRadius="1" Background="{x:Bind BarBrush}" HorizontalAlignment="Left" Margin="{x:Bind AvgMargin}" />
+                                            <Border Width="3" Height="14" CornerRadius="1" Background="{x:Bind BarBrush}" HorizontalAlignment="Left" Margin="{x:Bind AvgMargin}" Visibility="{x:Bind MarkVisibility}" />
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                    </Grid>
-                </Border>
-                <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}">
-                    <Grid RowSpacing="4">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock x:Name="TimelineTitle" Text="LATENCY OVER TIME · CLICK A HOP TO GRAPH IT" Style="{StaticResource SectionLabelStyle}" />
-                        <Canvas x:Name="TimelineCanvas" Grid.Row="1" SizeChanged="Timeline_SizeChanged" />
                     </Grid>
                 </Border>
             </Grid>
@@ -222,7 +208,22 @@
                 </ListView>
             </Border>
 
-            <Border Grid.Column="1" Style="{StaticResource ToolCardStyle}" Padding="0">
+            <Grid Grid.Column="1" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Border x:Name="TimelineCard" Grid.Row="1" Height="170" Style="{StaticResource ToolCardStyle}">
+                <Grid RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="TimelineTitle" Text="LATENCY OVER TIME · CLICK A HOP TO GRAPH IT" Style="{StaticResource SectionLabelStyle}" TextTrimming="CharacterEllipsis" />
+                    <Canvas x:Name="TimelineCanvas" Grid.Row="1" SizeChanged="Timeline_SizeChanged" />
+                </Grid>
+            </Border>
+            <Border Style="{StaticResource ToolCardStyle}" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -248,6 +249,7 @@
                     </ListView>
                 </Grid>
             </Border>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

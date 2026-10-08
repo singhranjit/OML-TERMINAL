@@ -380,7 +380,7 @@ public sealed partial class PingMonitorView : UserControl, IToolView
             Canvas.SetTop(t, y - 8);
             DetailCanvas.Children.Add(t);
         }
-        double step = (w - left) / Math.Max(cap, 1);
+        double step = (w - left) / Math.Max(s.Count - 1, 60); // a short run fills the width, a long one scrolls
         var line = new Polyline { Stroke = ToolUi.Brush("OmlSkyBrush"), StrokeThickness = 1.4 };
         var lost = ToolUi.Brush("OmlRoseBrush");
         for (int i = 0; i < s.Count; i++)

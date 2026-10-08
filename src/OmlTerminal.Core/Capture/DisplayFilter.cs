@@ -147,6 +147,12 @@ public sealed class DisplayFilter
         "dns.error" => p => p.DnsResponse && p.DnsRcode != 0,
         "stp.tc" => p => p.StpTopologyChange,
         "ip" => p => p.Protocols.Contains("ip"),
+        // A bare text field means "the packet has one", as in Wireshark ("tls.sni", "http.host").
+        "dns.qry.name" or "dns.name" => p => !string.IsNullOrEmpty(p.DnsName),
+        "tls.sni" or "tls.handshake.extensions_server_name" => p => !string.IsNullOrEmpty(p.TlsSni),
+        "http.host" => p => !string.IsNullOrEmpty(p.HttpHost),
+        "dhcp.hostname" or "dhcp.option.hostname" => p => !string.IsNullOrEmpty(p.DhcpHostname),
+        "wlan.ssid" => p => !string.IsNullOrEmpty(p.Ssid),
         _ when IsKnownProtocol(field) => p => p.Protocols.Contains(field) || p.Protocol.Equals(field, StringComparison.OrdinalIgnoreCase),
         _ => throw new FilterSyntaxException($"Unknown field or protocol '{field}'"),
     };

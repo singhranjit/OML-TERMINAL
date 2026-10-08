@@ -37,6 +37,7 @@ public sealed class HopRow
     public double BarWidth => double.IsNaN(Hop.Best) ? 0 : Math.Max(4, (Hop.Worst - Hop.Best) / Scale);
     public Thickness BarMargin => new(double.IsNaN(Hop.Best) ? 0 : Hop.Best / Scale, 0, 0, 0);
     public Thickness AvgMargin => new(double.IsNaN(Hop.Mean) ? 0 : Math.Max(0, Hop.Mean / Scale - 1.5), 0, 0, 0);
+    public Visibility MarkVisibility => double.IsNaN(Hop.Mean) ? Visibility.Collapsed : Visibility.Visible;
     public override string ToString() => $"Hop {HopText}, {Title}, loss {LossText}, average {AvgText} ms";
 }
 
@@ -62,7 +63,8 @@ public sealed class TraceFindingRow
 
 public sealed partial class PathTraceView : UserControl, IToolView
 {
-    private const double NodeW = 176, NodeH = 86, ColPitch = 246, LanePitch = 112, Left = 18, Top = 22;
+    private const double NodeW = 168, NodeH = 86, LanePitch = 112, Left = 18, Top = 22;
+    private double ColPitch => Mode == 1 ? 258 : 240; // device mode carries interface labels between columns
     private const string GlyphPc = "", GlyphRouter = "", GlyphSwitch = "", GlyphHost = "", GlyphCloud = "", GlyphSilent = "", GlyphSource = "";
 
     private sealed record DNode(string Key, int Col, int Lane, string Glyph, string Title, string Line2, string Line3, string Accent, bool Dashed, string Tip, int? Hop);
@@ -116,6 +118,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
         McastControls.Visibility = m == 2 ? Visibility.Visible : Visibility.Collapsed;
         PcDetails.Visibility = m == 0 ? Visibility.Visible : Visibility.Collapsed;
         NodeDetails.Visibility = m == 0 ? Visibility.Collapsed : Visibility.Visible;
+        TimelineCard.Visibility = m == 0 ? Visibility.Visible : Visibility.Collapsed;
         PathEmpty.Text = m switch
         {
             0 => "Enter a destination and press Start. Each hop appears as it answers; colours show where loss and delay really are - green clean, amber suspect, red the problem.",
@@ -276,7 +279,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
         var samples = all.Skip(Math.Max(0, all.Count - capacity)).ToList();
         var hop = _trace.Snapshot().Hops.FirstOrDefault(x => x.Hop == _selectedHop);
         TimelineTitle.Text = hop is null ? "LATENCY OVER TIME" :
-            $"HOP {hop.Hop} · {hop.Label.ToUpperInvariant()} · LATENCY OVER THE LAST {samples.Count} PROBES · RED = LOST";
+            $"HOP {hop.Hop} · {hop.Label.ToUpperInvariant()} · LAST {samples.Count} PROBES";
         if (samples.Count == 0) return;
         double max = Math.Max(10, samples.Where(s => s.RttMs is not null).Select(s => s.RttMs!.Value).DefaultIfEmpty(10).Max() * 1.15);
         double Y(double v) => 4 + (h - 8) * (1 - v / max);
@@ -289,7 +292,8 @@ public sealed partial class PathTraceView : UserControl, IToolView
             Canvas.SetTop(t, y - 8);
             TimelineCanvas.Children.Add(t);
         }
-        double step = (w - left) / Math.Max(capacity, 1);
+        // Spread a short run across the width; once there are more samples than pixels allow, it scrolls.
+        double step = (w - left) / Math.Max(samples.Count - 1, 30);
         var line = new Polyline { Stroke = ToolUi.Brush("OmlSkyBrush"), StrokeThickness = 1.6 };
         var lost = ToolUi.Brush("OmlRoseBrush");
         for (int i = 0; i < samples.Count; i++)
@@ -389,7 +393,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
             var to = byKey.GetValueOrDefault(l.To);
             var egress = from?.Interfaces.GetValueOrDefault(l.Egress);
             var ingress = to?.Interfaces.GetValueOrDefault(l.Ingress);
-            string accent = "OmlMintBrush", mid = l.Layer2 ? "L2" : "";
+            string accent = "OmlMintBrush";
             foreach (var h in new[] { egress, ingress })
             {
                 if (h is null) continue;
@@ -397,9 +401,10 @@ public sealed partial class PathTraceView : UserControl, IToolView
                 if (!h.Up || util >= 95) accent = "OmlRoseBrush";
                 else if ((util >= 80 || h.InputErrors >= 100 || h.Crc >= 50 || h.OutputDrops >= 1000) && accent != "OmlRoseBrush") accent = "OmlAmberBrush";
             }
-            if (egress is not null && !double.IsNaN(egress.OutUtil)) mid = $"{(l.Layer2 ? "L2 · " : "")}{egress.OutUtil:0}% of {egress.SpeedText}";
+            var fromLabel = NeighborParser.ShortInterface(l.Egress);
+            if (egress is not null && !double.IsNaN(egress.OutUtil)) fromLabel += $" · {egress.OutUtil:0}%";
             if (to?.Status is PathNodeStatus.Failed or PathNodeStatus.NotReached) accent = "OmlAmberBrush";
-            return new DEdge(l.From, l.To, mid, NeighborParser.ShortInterface(l.Egress), NeighborParser.ShortInterface(l.Ingress), accent, l.Layer2);
+            return new DEdge(l.From, l.To, "", fromLabel, NeighborParser.ShortInterface(l.Ingress), accent, l.Layer2);
         }).ToList();
         DrawDiagram(nodes, edges);
 
@@ -503,7 +508,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
             int col = n - 1 - i;
             bool noState = h.Rpf is not null && h.SG is null && h.StarG is null;
             string accent = isSource ? "OmlSkyBrush" : h.Failed || noState || h.RpfNeighborIsPim == false ? "OmlRoseBrush"
-                : h.Counters is { Pps: 0 } || h.Counters is { RpfFailed: > 0 } || h.SG is { Outgoing.Count: 0 } ? "OmlAmberBrush" : "OmlMintBrush";
+                : h.Counters is { Pps: 0 } || h.Counters is { } rc && (rc.RpfFailed >= 1000 || rc.RpfFailed * 100 >= Math.Max(1, rc.Forwarded)) || h.SG is { Outgoing.Count: 0 } ? "OmlAmberBrush" : "OmlMintBrush";
             string line3 = isSource ? $"source of {target.Group}" : h.Counters is { } c ? $"{c.Pps} pps · {c.Kbps} kbps" : Shorten(h.Status, 30);
             string tip = isSource ? "Multicast source" :
                 $"{h.Name}\n{h.Status}\nRPF: {h.Rpf?.Interface ?? "-"} → {h.Rpf?.Neighbor ?? "-"} ({h.Rpf?.Route})\n(S,G): {(h.SG is null ? "none" : $"in {h.SG.IncomingInterface}, out {string.Join(", ", h.SG.Outgoing)}, flags {h.SG.Flags}")}";
@@ -512,7 +517,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
             {
                 // Traffic flows from hop i (upstream) to hop i-1 (downstream), arriving on the downstream router's RPF interface.
                 var down = hops[i - 1];
-                edges.Add(new DEdge(h.Key, down.Key, down.Counters is { } dc ? $"{dc.Kbps} kbps" : "", "",
+                edges.Add(new DEdge(h.Key, down.Key, "", "",
                     NeighborParser.ShortInterface(down.Rpf?.Interface ?? ""), down.Failed ? "OmlRoseBrush" : accent == "OmlSkyBrush" ? "OmlMintBrush" : accent, false));
             }
         }
@@ -613,6 +618,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
     private void DrawDiagram(IReadOnlyList<DNode> nodes, IReadOnlyList<DEdge> edges)
     {
         PathCanvas.Children.Clear();
+        _labels.Clear();
         PathEmpty.Visibility = nodes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (nodes.Count == 0) return;
         int maxCol = nodes.Max(n => n.Col), maxLane = nodes.Max(n => n.Lane);
@@ -620,11 +626,27 @@ public sealed partial class PathTraceView : UserControl, IToolView
         PathCanvas.Height = Top + (maxLane + 1) * LanePitch;
         var pos = nodes.ToDictionary(n => n.Key, n => new Point(Left + n.Col * ColPitch, Top + n.Lane * LanePitch));
 
-        foreach (var e in edges)
+        // Several links leaving (or entering) one box are spread down its side, ordered by where they go,
+        // so lines and interface labels don't sit on top of each other.
+        var valid = edges.Where(e => pos.ContainsKey(e.From) && pos.ContainsKey(e.To)).ToList();
+        var outSlot = new Dictionary<DEdge, double>();
+        var inSlot = new Dictionary<DEdge, double>();
+        foreach (var g in valid.GroupBy(e => e.From))
         {
-            if (!pos.TryGetValue(e.From, out var a) || !pos.TryGetValue(e.To, out var b)) continue;
-            var start = new Point(a.X + NodeW, a.Y + NodeH / 2);
-            var end = new Point(b.X, b.Y + NodeH / 2);
+            var list = g.OrderBy(e => pos[e.To].Y).ToList();
+            for (int i = 0; i < list.Count; i++) outSlot[list[i]] = NodeH * (i + 1) / (list.Count + 1);
+        }
+        foreach (var g in valid.GroupBy(e => e.To))
+        {
+            var list = g.OrderBy(e => pos[e.From].Y).ToList();
+            for (int i = 0; i < list.Count; i++) inSlot[list[i]] = NodeH * (i + 1) / (list.Count + 1);
+        }
+        foreach (var e in valid)
+        {
+            var a = pos[e.From];
+            var b = pos[e.To];
+            var start = new Point(a.X + NodeW, a.Y + outSlot[e]);
+            var end = new Point(b.X, b.Y + inSlot[e]);
             var brush = ToolUi.Brush(e.Accent);
             var fig = new PathFigure { StartPoint = start };
             double mx = (start.X + end.X) / 2;
@@ -637,7 +659,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
             var arrow = new Polygon { Fill = brush, Points = { new Point(end.X, end.Y), new Point(end.X - 8, end.Y - 5), new Point(end.X - 8, end.Y + 5) } };
             PathCanvas.Children.Add(arrow);
             if (e.FromLabel.Length > 0) AddLabel(e.FromLabel, start.X + 6, start.Y - 17, false);
-            if (e.ToLabel.Length > 0) AddLabel(e.ToLabel, end.X - 10, end.Y - 17, true);
+            if (e.ToLabel.Length > 0) AddLabel(e.ToLabel, end.X - 10, end.Y + 2, true);
             if (e.Mid.Length > 0)
             {
                 var pill = new Border
@@ -691,12 +713,21 @@ public sealed partial class PathTraceView : UserControl, IToolView
         }
     }
 
+    private readonly List<Rect> _labels = [];
+
+    /// <summary>Interface label at a link end. If it would overprint another label, it steps away from the line
+    /// (egress labels upwards, ingress labels downwards) until it's clear.</summary>
     private void AddLabel(string text, double x, double y, bool alignRight)
     {
-        var t = new TextBlock { Text = text, FontSize = 10.5, Opacity = 0.75, FontFamily = (FontFamily)Application.Current.Resources["MonoFont"] };
+        var t = new TextBlock { Text = text, FontSize = 10.5, Opacity = 0.8, FontFamily = (FontFamily)Application.Current.Resources["MonoFont"] };
         t.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        Canvas.SetLeft(t, alignRight ? x - t.DesiredSize.Width : x);
-        Canvas.SetTop(t, y);
+        var r = new Rect(alignRight ? x - t.DesiredSize.Width : x, y, t.DesiredSize.Width, 13);
+        double step = alignRight ? 12 : -12;
+        for (int i = 0; i < 6 && _labels.Any(p => p.X < r.X + r.Width && r.X < p.X + p.Width && p.Y < r.Y + r.Height && r.Y < p.Y + p.Height); i++)
+            r.Y += step;
+        _labels.Add(r);
+        Canvas.SetLeft(t, r.X);
+        Canvas.SetTop(t, r.Y);
         PathCanvas.Children.Add(t);
     }
 
