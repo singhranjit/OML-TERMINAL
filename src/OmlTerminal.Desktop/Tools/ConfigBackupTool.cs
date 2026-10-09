@@ -73,6 +73,14 @@ internal sealed class DevicePicker : DockPanel
         Apply();
     }
 
+    /// <summary>Replaces the ticks (e.g. reopening a saved change).</summary>
+    public void SetSelection(IEnumerable<Guid> ids)
+    {
+        _selected.Clear();
+        foreach (var id in ids) _selected.Add(id);
+        Apply();
+    }
+
     public IReadOnlyList<SessionProfile> Selected => _devices.Where(d => _selected.Contains(d.Id)).ToList();
 
     private List<SessionProfile> Shown()
@@ -215,9 +223,9 @@ public sealed class ConfigBackupTool : UserControl, IToolView
                 await gate.WaitAsync(_cts.Token);
                 try
                 {
-                    Update(row, r => r.Running = true);
+                    await Update(row, r => r.Running = true);
                     var result = await Task.Run(() => ConfigBackup.RunAsync(row.Device, preset, root, ct: _cts.Token));
-                    Update(row, r => { r.Running = false; r.Result = result; });
+                    await Update(row, r => { r.Running = false; r.Result = result; });
                 }
                 finally { gate.Release(); }
             }));
@@ -235,15 +243,17 @@ public sealed class ConfigBackupTool : UserControl, IToolView
     }
 
     /// <summary>Applied immediately on the UI thread so the run summary, counted right after the last device, sees it.</summary>
-    private void Update(BackupRow row, Action<BackupRow> change)
+    /// <summary>Applies on the UI thread and completes once applied, so a run's summary (counted right after the last
+    /// device) always sees every result.</summary>
+    private Task Update(BackupRow row, Action<BackupRow> change)
     {
         void Apply()
         {
             change(row);
             if (ReferenceEquals(_results.SelectedItem, row)) ShowPreview();
         }
-        if (Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        if (Dispatcher.UIThread.CheckAccess()) { Apply(); return Task.CompletedTask; }
+        return Dispatcher.UIThread.InvokeAsync(Apply).GetTask();
     }
 
     private void ShowPreview()
