@@ -13,6 +13,7 @@ using OmlTerminal.Core.Shells;
 using OmlTerminal.Core.Terminal;
 using OmlTerminal.Core.Transports;
 using OmlTerminal.Desktop.Controls;
+using OmlTerminal.Desktop.Tools;
 
 namespace OmlTerminal.Desktop;
 
@@ -22,6 +23,12 @@ public partial class MainWindow : Window
 
     private readonly MainViewModel _vm = new();
     private readonly Dictionary<TabItem, (TerminalTabViewModel Vm, TerminalView View)> _tabs = new();
+    private readonly Dictionary<string, TabItem> _toolTabs = new();
+    private (TerminalTabViewModel Vm, TerminalView View)? _lastTerminal;
+    private ToolContext? _toolContext;
+
+    /// <summary>The main window, for tool helpers that need a TopLevel (clipboard, file pickers).</summary>
+    public static MainWindow? Current { get; private set; }
     private IReadOnlyList<TerminalMatch> _matches = [];
     private int _matchIndex = -1;
     private double _fontSize;
@@ -32,6 +39,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Current = this;
         _fontSize = _vm.Settings.FontSize is >= MainViewModel.MinFont and <= MainViewModel.MaxFont ? _vm.Settings.FontSize : MainViewModel.DefaultFont;
         Title = $"OML Terminal {AppVersionText}";
         SearchBox.TextChanged += (_, _) => RefreshTree();
@@ -40,6 +48,7 @@ public partial class MainWindow : Window
         FindBox.TextChanged += (_, _) => RunFind(keepPosition: false);
         FindCase.IsCheckedChanged += (_, _) => RunFind(keepPosition: false);
         BuildShellsMenu();
+        BuildToolList();
         UpdateStartPanel();
         Opened += async (_, _) =>
         {
@@ -244,7 +253,7 @@ public partial class MainWindow : Window
 
         var title = new TextBlock { Text = p.Name, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis };
         var dot = new Avalonia.Controls.Shapes.Ellipse { Width = 7, Height = 7, Fill = (IBrush)this.FindResource("OmlAccent")!, VerticalAlignment = VerticalAlignment.Center };
-        var close = new Button { Content = "✕", FontSize = 10, Padding = new Thickness(5, 1), Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
+        var close = new Button { Content = "×", FontSize = 10, Padding = new Thickness(5, 1), Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(close, "Close tab (Ctrl+W)");
         var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Children = { dot, title, close } };
         ToolTip.SetTip(header, $"{tabVm.ProtocolText} · {tabVm.HostText}");
@@ -272,8 +281,14 @@ public partial class MainWindow : Window
 
     private void OnTabChanged()
     {
-        if (CurrentTab() is { } cur)
+        if (Tabs.SelectedItem is TabItem t && t.Tag is ToolDescriptor tool)
         {
+            Status(tool.Title);
+            StatusSize.Text = "";
+        }
+        else if (CurrentTab() is { } cur)
+        {
+            _lastTerminal = cur;
             Status($"{cur.Vm.ProtocolText} · {cur.Vm.HostText}");
             StatusSize.Text = cur.View.Cols > 0 ? $"{cur.View.Cols} × {cur.View.Rows}" : "";
             Dispatcher.UIThread.Post(() => cur.View.Focus(), DispatcherPriority.Background);
@@ -284,7 +299,16 @@ public partial class MainWindow : Window
 
     private void CloseTab(TabItem tab)
     {
+        if (tab.Tag is ToolDescriptor tool)
+        {
+            _toolTabs.Remove(tool.Id);
+            try { (tab.Content as IToolView)?.Shutdown(); } catch { }
+            Tabs.Items.Remove(tab);
+            UpdateStartPanel();
+            return;
+        }
         if (!_tabs.Remove(tab, out var t)) return;
+        if (_lastTerminal?.View == t.View) _lastTerminal = null;
         t.View.Detach();
         try { t.Vm.Close(); } catch { }
         Tabs.Items.Remove(tab);
@@ -304,8 +328,103 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        foreach (var tab in _tabs.Keys.ToList()) CloseTab(tab);
+        foreach (var tab in Tabs.Items.OfType<TabItem>().ToList()) CloseTab(tab);
         base.OnClosing(e);
+    }
+
+    // ---------- tools ----------
+
+    private void SidebarTab_Click(object? sender, RoutedEventArgs e)
+    {
+        bool tools = sender == ToolsTab;
+        SessionsTab.IsChecked = !tools;
+        ToolsTab.IsChecked = tools;
+        SessionsPanel.IsVisible = !tools;
+        ToolsPanel.IsVisible = tools;
+    }
+
+    private void BuildToolList()
+    {
+        var menu = new List<Control>();
+        foreach (var category in ToolCatalog.Categories)
+        {
+            var tools = ToolCatalog.All.Where(t => t.Category == category).ToList();
+            if (tools.Count == 0) continue;
+            ToolList.Children.Add(new TextBlock { Text = category.ToUpperInvariant(), Classes = { "section" }, Margin = new Thickness(4, 10, 0, 4) });
+            if (menu.Count > 0) menu.Add(new Separator());
+            foreach (var tool in tools)
+            {
+                var button = new Button
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
+                    Background = Brushes.Transparent, Padding = new Thickness(8, 5),
+                    Content = new StackPanel
+                    {
+                        Spacing = 1,
+                        Children =
+                        {
+                            new TextBlock { Text = tool.Title, FontSize = 13 },
+                            new TextBlock { Text = tool.Subtitle, FontSize = 11, Classes = { "muted" }, TextTrimming = TextTrimming.CharacterEllipsis },
+                        },
+                    },
+                };
+                ToolTip.SetTip(button, tool.Subtitle);
+                button.Click += (_, _) => OpenTool(tool.Id);
+                ToolList.Children.Add(button);
+                var mi = new MenuItem { Header = tool.Title };
+                mi.Click += (_, _) => OpenTool(tool.Id);
+                menu.Add(mi);
+            }
+        }
+        ToolsMenu.ItemsSource = menu;
+    }
+
+    private ToolContext Context => _toolContext ??= new ToolContext
+    {
+        Sessions = () => _vm.IsLocked ? [] : _vm.Sessions.Select(_vm.Resolve).ToList(),
+        Model = _vm,
+        SendToActiveSession = text => SendToTerminal(text + "\r"),
+        InsertIntoActiveSession = SendToTerminal,
+        Settings = _vm.Settings,
+        SaveSettings = () => { try { _vm.SaveSettings(); } catch { } },
+        OpenSession = p => Connect(p, remember: false),
+        ActiveTerminalText = () => _lastTerminal?.Vm.Session.Engine.GetBufferText(),
+        OpenTool = (id, configure) => OpenTool(id, configure),
+    };
+
+    private bool SendToTerminal(string text)
+    {
+        if (_lastTerminal is not { } t || !t.Vm.Session.IsConnected) return false;
+        t.Vm.Session.Send(System.Text.Encoding.UTF8.GetBytes(text));
+        return true;
+    }
+
+    /// <summary>Opens a tool in its own tab, or switches to it if it's already open.</summary>
+    public void OpenTool(string id, Action<Control>? configure = null)
+    {
+        if (_toolTabs.TryGetValue(id, out var existing))
+        {
+            Tabs.SelectedItem = existing;
+            if (existing.Content is Control c) configure?.Invoke(c);
+            return;
+        }
+        if (ToolCatalog.Find(id) is not { } tool) return;
+        Control view;
+        try { view = tool.Create(Context); }
+        catch (Exception ex) { _ = Dialogs.MessageAsync(this, tool.Title, ex.Message); return; }
+        configure?.Invoke(view);
+
+        var title = new TextBlock { Text = tool.Title, VerticalAlignment = VerticalAlignment.Center };
+        var dot = new Avalonia.Controls.Shapes.Rectangle { Width = 7, Height = 7, Fill = Ui.Violet, VerticalAlignment = VerticalAlignment.Center };
+        var close = new Button { Content = "×", FontSize = 10, Padding = new Thickness(5, 1), Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Children = { dot, title, close } };
+        var tab = new TabItem { Header = header, Content = view, Tag = tool, FontSize = 13 };
+        close.Click += (_, _) => CloseTab(tab);
+        header.PointerPressed += (_, e) => { if (e.GetCurrentPoint(header).Properties.IsMiddleButtonPressed) CloseTab(tab); };
+        _toolTabs[id] = tab;
+        Tabs.Items.Add(tab);
+        Tabs.SelectedItem = tab;
+        UpdateStartPanel();
     }
 
     // ---------- edit / view ----------

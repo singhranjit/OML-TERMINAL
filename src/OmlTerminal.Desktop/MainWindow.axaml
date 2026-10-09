@@ -11,6 +11,7 @@
         <MenuItem Header="_New Session..." InputGesture="Ctrl+N" Click="NewSession_Click" />
         <MenuItem Header="New _Local Shell" InputGesture="Ctrl+Shift+T" Click="LocalShell_Click" />
         <MenuItem x:Name="ShellsMenu" Header="Open _Shell" />
+        <MenuItem x:Name="ToolsMenu" Header="_Tools" />
         <Separator />
         <MenuItem Header="Import PuTTY Sessions..." Click="ImportPutty_Click" />
         <Separator />
@@ -51,13 +52,23 @@
         <DockPanel Margin="10,10,6,10">
           <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <Button DockPanel.Dock="Right" Content="+" ToolTip.Tip="New session (Ctrl+N)" Padding="10,2" Click="NewSession_Click" />
-            <TextBlock Text="SESSIONS" Classes="section" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ToggleButton x:Name="SessionsTab" Content="Sessions" IsChecked="True" Padding="10,3" FontSize="12" Click="SidebarTab_Click" />
+              <ToggleButton x:Name="ToolsTab" Content="Tools" Padding="10,3" FontSize="12" Click="SidebarTab_Click" />
+            </StackPanel>
           </DockPanel>
-          <TextBox x:Name="SearchBox" DockPanel.Dock="Top" PlaceholderText="Search name, host, folder, tag" Margin="0,0,0,8" />
-          <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
-            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Local Shell" Click="LocalShell_Click" />
-          </StackPanel>
-          <TreeView x:Name="SessionTree" />
+          <!-- Sessions -->
+          <DockPanel x:Name="SessionsPanel">
+            <TextBox x:Name="SearchBox" DockPanel.Dock="Top" PlaceholderText="Search name, host, folder, tag" Margin="0,0,0,8" />
+            <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+              <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Local Shell" Click="LocalShell_Click" />
+            </StackPanel>
+            <TreeView x:Name="SessionTree" />
+          </DockPanel>
+          <!-- Tools -->
+          <ScrollViewer x:Name="ToolsPanel" IsVisible="False">
+            <StackPanel x:Name="ToolList" Spacing="2" />
+          </ScrollViewer>
         </DockPanel>
       </Border>
       <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
