@@ -47,9 +47,14 @@ public static class ToolCatalog
         new("pingmon", "Ping Monitor", "Continuous ping to many hosts at once - latency, loss, jitter, MOS and an outage log", "Network", c => new PingMonitorTool(c)),
         new("mrtg", "Traffic Graphs (MRTG)", "SNMP v1/v2c/v3 interface traffic - daily, weekly, monthly and yearly graphs with 95th percentile and alerts", "Network", c => new TrafficGraphTool(c)),
         new("dns", "DNS Lookup", "dig-style queries against any resolver", "Network", _ => new DnsTool()),
+        new("hostmonitor", "Host Monitor", "Live load, memory, disk and uptime for saved SSH sessions", "Network", c => new HostMonitorTool(c)),
+        new("tables", "Structured Output", "Turn show-command output into a sortable, filterable table - CSV/Markdown export", "Network", c => new StructuredOutputTool(c)),
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "Network", _ => new SubnetTool()),
         new("backup", "Config Backup", "Pull running configs over SSH, detect changes, diff", "Security", c => new ConfigBackupTool(c)),
         new("scheduledbackups", "Scheduled Backups", "Recurring config backups with drift alerts, while the app is open", "Security", c => new ScheduledBackupsTool(c)),
+        new("search", "Global Search", "Find an IP, subnet, MAC or text across every backup, log, capture and session", "Reference", c => new GlobalSearchTool(c)),
+        new("cliguide", "CLI Guide", "Searchable command reference for every supported vendor", "Reference", c => new CliGuideTool(c)),
+        new("scripts", "Scripts", "Run your own Bash/Python/PowerShell scripts as external processes, with session context", "Reference", c => new ScriptsTool(c)),
     ];
 
     public static ToolDescriptor? Find(string id) => All.FirstOrDefault(t => t.Id == id);
