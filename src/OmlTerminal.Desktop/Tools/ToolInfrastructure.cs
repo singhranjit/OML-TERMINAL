@@ -45,6 +45,7 @@ public static class ToolCatalog
         new("ping", "Ping · Trace · Sweep", "ICMP ping, traceroute and subnet sweep", "Network", c => new PingTraceTool(c)),
         new("pathtrace", "Visual Trace", "Live traceroute drawn as a path with a plain-English verdict, hop-by-hop path through your devices (WireWalk), and multicast trees", "Network", c => new PathTraceTool(c)),
         new("pingmon", "Ping Monitor", "Continuous ping to many hosts at once - latency, loss, jitter, MOS and an outage log", "Network", c => new PingMonitorTool(c)),
+        new("mrtg", "Traffic Graphs (MRTG)", "SNMP v1/v2c/v3 interface traffic - daily, weekly, monthly and yearly graphs with 95th percentile and alerts", "Network", c => new TrafficGraphTool(c)),
         new("dns", "DNS Lookup", "dig-style queries against any resolver", "Network", _ => new DnsTool()),
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "Network", _ => new SubnetTool()),
     ];

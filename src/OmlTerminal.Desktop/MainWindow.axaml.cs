@@ -54,6 +54,7 @@ public partial class MainWindow : Window
         {
             if (_vm.IsLocked && !await UnlockAsync()) { Close(); return; }
             RefreshTree();
+            Core.Snmp.TrafficGrapher.Shared.Start(); // MRTG polling runs while the app is open, tool tab or not
         };
     }
 
@@ -329,6 +330,7 @@ public partial class MainWindow : Window
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         foreach (var tab in Tabs.Items.OfType<TabItem>().ToList()) CloseTab(tab);
+        try { Core.Snmp.TrafficGrapher.Shared.Dispose(); } catch { }
         base.OnClosing(e);
     }
 
