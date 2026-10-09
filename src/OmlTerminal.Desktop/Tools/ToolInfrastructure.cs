@@ -60,6 +60,7 @@ public static class ToolCatalog
         new("search", "Global Search", "Find an IP, subnet, MAC or text across every backup, log, capture and session", "Reference", c => new GlobalSearchTool(c)),
         new("cliguide", "CLI Guide", "Searchable command reference for every supported vendor", "Reference", c => new CliGuideTool(c)),
         new("scripts", "Scripts", "Run your own Bash/Python/PowerShell scripts as external processes, with session context", "Reference", c => new ScriptsTool(c)),
+        new("netservices", "Network Services", "TFTP/FTP servers & client, Syslog, SNTP, DHCP (tftpd64-style)", "Servers", c => new NetworkServicesTool(c)),
     ];
 
     public static ToolDescriptor? Find(string id) => All.FirstOrDefault(t => t.Id == id);
