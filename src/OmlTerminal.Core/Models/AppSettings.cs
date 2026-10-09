@@ -70,6 +70,15 @@ public sealed class AppSettings
     public string CopilotModel { get; set; } = "";
     public string CopilotApiKey { get; set; } = "";
 
+    /// <summary>Opt-in daily check of omllabs.com for a newer release. Null until the user has been asked (first run).</summary>
+    public bool? CheckForUpdates { get; set; }
+    public DateTime? LastUpdateCheckUtc { get; set; }
+    /// <summary>A version the user said "skip this one" to - no banner for it again.</summary>
+    public string SkippedUpdateVersion { get; set; } = "";
+
+    /// <summary>Set once the first-run welcome has been shown.</summary>
+    public bool WelcomeShown { get; set; }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasMasterPassword => !string.IsNullOrEmpty(MasterPasswordSalt) && !string.IsNullOrEmpty(MasterPasswordVerifier);
 }

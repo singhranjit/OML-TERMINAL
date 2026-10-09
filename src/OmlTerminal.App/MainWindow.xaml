@@ -147,6 +147,11 @@
                     <ToggleMenuFlyoutItem x:Name="HighlightItem" Text="Keyword Highlighting" Click="Highlight_Click" />
                 </MenuBarItem>
                 <MenuBarItem Title="Help">
+                    <MenuFlyoutItem Text="User Guide" Click="UserGuide_Click" />
+                    <MenuFlyoutItem Text="What's New" Click="WhatsNew_Click" />
+                    <MenuFlyoutItem Text="Check for Updates" Click="CheckUpdates_Click" />
+                    <MenuFlyoutItem Text="Welcome Tour" Click="Welcome_Click" />
+                    <MenuFlyoutSeparator />
                     <MenuFlyoutItem Text="Register oml-terminal:// links" Click="RegisterLinks_Click" />
                     <MenuFlyoutItem Text="About" Click="About_Click" />
                 </MenuBarItem>
@@ -440,6 +445,17 @@
                 <TextBlock x:Name="DragGhostText" FontSize="13" />
             </Border>
         </Canvas>
+
+        <!-- A newer release is out (opt-in daily check of omllabs.com). -->
+        <InfoBar x:Name="UpdateBar" Grid.RowSpan="5" Severity="Informational" IsOpen="False" IsClosable="True" MaxWidth="560"
+                 HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,40">
+            <InfoBar.ActionButton>
+                <Button Content="Download" Click="UpdateDownload_Click" Style="{StaticResource AccentButtonStyle}" />
+            </InfoBar.ActionButton>
+            <InfoBar.Content>
+                <HyperlinkButton Content="Skip this version" Click="UpdateSkip_Click" Margin="0,0,0,8" Padding="0" />
+            </InfoBar.Content>
+        </InfoBar>
 
         <!-- Shown when something fails unexpectedly - the error is logged and the app carries on. -->
         <InfoBar x:Name="ErrorBar" Grid.RowSpan="5" Severity="Error" IsOpen="False" IsClosable="True" MaxWidth="560"

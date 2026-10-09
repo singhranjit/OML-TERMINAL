@@ -153,6 +153,8 @@ public sealed partial class MainWindow : Window
             if (_vm.Settings.RestoreWorkspaceOnLaunch)
                 foreach (var id in _vm.Settings.WorkspaceSessionIds.ToList())
                     if (_vm.Sessions.FirstOrDefault(s => s.Id == id) is { } profile) OpenSession(profile);
+            if (!_vm.Settings.WelcomeShown) await ShowWelcomeAsync();
+            await CheckForUpdatesAsync(manual: false);
         };
     }
 
@@ -2579,9 +2581,112 @@ public sealed partial class MainWindow : Window
         UpdateStatus();
     }
 
+    private static Version AppVersion => typeof(MainWindow).Assembly.GetName().Version ?? new Version(0, 0, 0);
+    private static string AppVersionText => $"{AppVersion.Major}.{AppVersion.Minor}.{Math.Max(0, AppVersion.Build)}";
+
     private async void About_Click(object sender, RoutedEventArgs e) =>
         await MessageAsync("About OML Terminal",
-            "OML Terminal\n\nSSH (built-in, OpenSSH with X11, or PuTTY), Telnet, Serial, RDP, VNC, SFTP and local shells (PowerShell, WSL, Cygwin, Git Bash) " +
-            "with split view, multi-exec, tunnels, macros - plus a network & security toolkit: port query, netstat, ping/trace/sweep, DNS, subnet calculator, " +
-            "packet capture, firewall object builder and config backup.\n\nFree, no telemetry, no lock-in.");
+            $"OML Terminal {AppVersionText}\n\n" +
+            "SSH, Telnet, Serial, RDP, VNC, SFTP and local shells with split view, multi-exec, tunnels and macros - plus a network & security " +
+            $"toolkit of {ToolCatalog.All.Count} tools: Visual Trace and WireWalk, Ping Monitor, Traffic Graphs (MRTG), Packet and Wi-Fi Analyzers, " +
+            "Topology Mapper, Change Guard, Config Backup, Global Search, firewall builders and migration, and more.\n\n" +
+            "Free for the community, open source (GPL-3.0-or-later), no telemetry, no account.\n\n" +
+            "omllabs.com/terminal.html  ·  github.com/singhranjit/OML-TERMINAL\n" +
+            $"Your data: {Core.Persistence.AppPaths.DataDirectory}");
+
+    private static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true })?.Dispose(); } catch { }
+    }
+
+    private void UserGuide_Click(object sender, RoutedEventArgs e) => OpenUrl("https://omllabs.com/oml-terminal.html");
+    private void WhatsNew_Click(object sender, RoutedEventArgs e) => OpenUrl("https://github.com/singhranjit/OML-TERMINAL/blob/main/CHANGELOG.md");
+
+    // ---------- updates ----------
+
+    private Core.Models.ReleaseInfo? _available;
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(manual: true);
+
+    /// <summary>Automatic checks happen only if the user opted in, at most once a day; Help → Check for Updates always asks.</summary>
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        var s = _vm.Settings;
+        if (!manual && (s.CheckForUpdates != true || !Core.Models.UpdateChecker.Due(s.LastUpdateCheckUtc, DateTime.UtcNow))) return;
+        var info = await Core.Models.UpdateChecker.CheckAsync(AppVersion);
+        s.LastUpdateCheckUtc = DateTime.UtcNow;
+        _vm.SaveSettings();
+        if (info is not null && (manual || info.Version != s.SkippedUpdateVersion))
+        {
+            _available = info;
+            UpdateBar.Title = $"OML Terminal {info.Version} is available";
+            UpdateBar.Message = (info.Notes.Length > 0 ? info.Notes : $"Released {info.Date}.") + $" You have {AppVersionText}.";
+            UpdateBar.IsOpen = true;
+        }
+        else if (manual)
+            await MessageAsync("Check for Updates", $"You're up to date - OML Terminal {AppVersionText} is the latest release. (If omllabs.com couldn't be reached, try again later.)");
+    }
+
+    private void UpdateDownload_Click(object sender, RoutedEventArgs e)
+    {
+        OpenUrl(_available?.Url is { Length: > 0 } u ? u : Core.Models.UpdateChecker.DownloadsUrl);
+        UpdateBar.IsOpen = false;
+    }
+
+    private void UpdateSkip_Click(object sender, RoutedEventArgs e)
+    {
+        if (_available is not null) { _vm.Settings.SkippedUpdateVersion = _available.Version; _vm.SaveSettings(); }
+        UpdateBar.IsOpen = false;
+    }
+
+    // ---------- first run ----------
+
+    private async void Welcome_Click(object sender, RoutedEventArgs e) => await ShowWelcomeAsync();
+
+    /// <summary>First launch: what the app is, where things are, the update opt-in, and an import shortcut when there are no sessions yet.</summary>
+    private async Task ShowWelcomeAsync()
+    {
+        var updates = new CheckBox
+        {
+            Content = new TextBlock
+            {
+                Text = "Tell me when a new version is out (checks omllabs.com once a day - nothing about you or your devices is sent)",
+                TextWrapping = TextWrapping.Wrap,
+            },
+            IsChecked = _vm.Settings.CheckForUpdates ?? true,
+        };
+        var tips = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 22,
+            Text = "•  New Session (Ctrl+N) or Quick connect on Home - SSH, Telnet, Serial, RDP, VNC, SFTP and local shells.\n" +
+                   "•  Ctrl+K opens the command palette: every action and tool by name.\n" +
+                   "•  The toolbar holds the network toolkit - Visual Trace and WireWalk, Ping Monitor, MRTG graphs, Packet and Wi-Fi Analyzers, Topology, Change Guard, backups and more.\n" +
+                   "•  Saved logins live in the Password Manager, encrypted on this PC.",
+        };
+        var panel = new StackPanel { Spacing = 14, MaxWidth = 560 };
+        panel.Children.Add(new TextBlock { Text = "The network engineer's cockpit - free for the community, no account, no telemetry.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
+        panel.Children.Add(tips);
+        panel.Children.Add(updates);
+        bool noSessions = _vm.Sessions.Count == 0;
+        if (noSessions)
+            panel.Children.Add(new TextBlock { Text = "Coming from another terminal? Bring your saved sessions across:", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
+        var dialog = new ContentDialog
+        {
+            XamlRoot = RootGrid.XamlRoot,
+            RequestedTheme = ElementTheme.Dark,
+            Title = $"Welcome to OML Terminal {AppVersionText}",
+            Content = panel,
+            PrimaryButtonText = noSessions ? "Import from PuTTY" : "",
+            SecondaryButtonText = noSessions ? "Import from MobaXterm" : "",
+            CloseButtonText = "Start",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        var result = await ShowDialogAsync(dialog);
+        _vm.Settings.CheckForUpdates = updates.IsChecked == true;
+        _vm.Settings.WelcomeShown = true;
+        _vm.SaveSettings();
+        if (result == ContentDialogResult.Primary) ImportPutty_Click(this, new RoutedEventArgs());
+        else if (result == ContentDialogResult.Secondary) ImportMobaXterm_Click(this, new RoutedEventArgs());
+    }
 }
