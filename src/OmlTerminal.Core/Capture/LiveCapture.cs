@@ -30,11 +30,32 @@ public static class CaptureEngine
 
     public static bool NpcapInstalled => File.Exists(Path.Combine(NpcapDir, "wpcap.dll"));
 
+    /// <summary>Npcap on Windows, libpcap on Linux/macOS (the same API - Npcap is libpcap's Windows port).</summary>
+    public static bool PcapAvailable => OperatingSystem.IsWindows() ? NpcapInstalled : Npcap.TryLoad();
+
     /// <summary>Adapters to capture on - every Npcap device when Npcap is installed, otherwise each adapter with an
     /// IPv4 address (the raw-socket fallback can only bind to an address).</summary>
     public static IReadOnlyList<CaptureInterface> ListInterfaces()
     {
         var nics = NetworkInterface.GetAllNetworkInterfaces();
+        if (!OperatingSystem.IsWindows())
+        {
+            if (!PcapAvailable)
+                throw new InvalidOperationException(OperatingSystem.IsMacOS()
+                    ? "libpcap wasn't found."
+                    : "Live capture needs libpcap. Install it (e.g. sudo apt install libpcap0.8) and reopen this tab.");
+            var unix = new List<CaptureInterface>();
+            foreach (var (name, _) in Npcap.Devices())
+            {
+                var nic = nics.FirstOrDefault(n => n.Name == name);
+                if (nic is null) continue; // "any", nflog, usbmon, bluetooth monitors...
+                bool loop = nic.NetworkInterfaceType == NetworkInterfaceType.Loopback;
+                bool wifi = nic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || Directory.Exists($"/sys/class/net/{name}/wireless");
+                unix.Add(new CaptureInterface(name, loop ? "Loopback" : name, loop ? "Loopback (this computer talking to itself)" : nic.Description,
+                    wifi, nic.OperationalStatus is OperationalStatus.Up or OperationalStatus.Unknown, Ipv4Of(nic), true));
+            }
+            return unix.OrderByDescending(i => i.IsUp).ThenBy(i => i.Name == "Loopback").ThenByDescending(i => i.Addresses.Count).ToList();
+        }
         if (NpcapInstalled)
         {
             try
@@ -110,7 +131,11 @@ internal sealed class NpcapCapture(string device, string bpf, bool promiscuous, 
         int rc = Npcap.pcap_activate(_handle);
         if (rc < 0)
             throw Fail(rc == -8 /* PCAP_ERROR_PERM_DENIED */
-                ? "Permission denied - Npcap may be installed in \"admin only\" mode; run OML Terminal as administrator."
+                ? (OperatingSystem.IsWindows()
+                    ? "Permission denied - Npcap may be installed in \"admin only\" mode; run OML Terminal as administrator."
+                    : OperatingSystem.IsMacOS()
+                        ? "Permission denied - capturing needs read access to /dev/bpf* (install Wireshark's ChmodBPF, or run with sudo)."
+                        : $"Permission denied - capturing needs the cap_net_raw and cap_net_admin capabilities. The .deb package sets them; otherwise run: sudo setcap cap_net_raw,cap_net_admin+ep {Environment.ProcessPath}")
                 : $"Couldn't start capturing: {Npcap.Error(_handle)}");
         LinkType = Npcap.pcap_datalink(_handle);
         if (!string.IsNullOrWhiteSpace(bpf))
@@ -139,11 +164,11 @@ internal sealed class NpcapCapture(string device, string bpf, bool promiscuous, 
             int rc = Npcap.pcap_next_ex(_handle, out var hdrPtr, out var dataPtr);
             if (rc == 1)
             {
-                var hdr = Marshal.PtrToStructure<Npcap.pcap_pkthdr>(hdrPtr);
-                var data = new byte[hdr.caplen];
+                var (sec, usec, caplen, len) = Npcap.ReadHeader(hdrPtr);
+                var data = new byte[caplen];
                 Marshal.Copy(dataPtr, data, 0, data.Length);
-                var ts = DateTime.UnixEpoch.AddSeconds(hdr.tv_sec).AddTicks(hdr.tv_usec * 10L).ToLocalTime();
-                FrameArrived?.Invoke(new RawFrame(ts, data, (int)hdr.len, LinkType));
+                var ts = DateTime.UnixEpoch.AddSeconds(sec).AddTicks(usec * 10L).ToLocalTime();
+                FrameArrived?.Invoke(new RawFrame(ts, data, (int)len, LinkType));
             }
             else if (rc < 0 && !_stop)
             {
@@ -232,12 +257,46 @@ internal static class Npcap
 {
     private const string Lib = "wpcap.dll";
     private static bool _loaded;
+    private static IntPtr _unixLib;
+    private static readonly object LoadLock = new();
+
+    /// <summary>libpcap's file name differs by distro and OS; the [DllImport]s name Npcap's DLL and are pointed at it.</summary>
+    private static readonly string[] UnixNames = OperatingSystem.IsMacOS()
+        ? ["libpcap.A.dylib", "/usr/lib/libpcap.A.dylib", "libpcap.dylib"]
+        : ["libpcap.so.1", "libpcap.so.0.8", "libpcap.so"];
+
+    /// <summary>Linux/macOS: finds libpcap and routes the imports below to it. False when it isn't installed.</summary>
+    public static bool TryLoad()
+    {
+        if (OperatingSystem.IsWindows()) return CaptureEngine.NpcapInstalled;
+        lock (LoadLock)
+        {
+            if (_unixLib != IntPtr.Zero) return true;
+            foreach (var name in UnixNames)
+                if (NativeLibrary.TryLoad(name, out _unixLib)) break;
+            if (_unixLib == IntPtr.Zero) return false;
+            NativeLibrary.SetDllImportResolver(typeof(Npcap).Assembly, (lib, _, _) => lib == Lib ? _unixLib : IntPtr.Zero);
+            _loaded = true;
+            return true;
+        }
+    }
+
+    /// <summary>struct pcap_pkthdr starts with a struct timeval: two 32-bit fields on Windows, but 64-bit seconds and
+    /// (padded) microseconds on 64-bit Linux/macOS - so it's read by offset rather than marshalled.</summary>
+    public static (long Sec, long Usec, uint CapLen, uint Len) ReadHeader(IntPtr h) => OperatingSystem.IsWindows()
+        ? (Marshal.ReadInt32(h), Marshal.ReadInt32(h, 4), (uint)Marshal.ReadInt32(h, 8), (uint)Marshal.ReadInt32(h, 12))
+        : (Marshal.ReadInt64(h), Marshal.ReadInt32(h, 8), (uint)Marshal.ReadInt32(h, 16), (uint)Marshal.ReadInt32(h, 20));
 
     /// <summary>Npcap keeps wpcap.dll in System32\Npcap, off the default DLL search path; loading it (and Packet.dll
     /// beside it) by full path first makes the [DllImport]s below bind to it.</summary>
     public static void EnsureLoaded()
     {
         if (_loaded) return;
+        if (!OperatingSystem.IsWindows())
+        {
+            if (!TryLoad()) throw new InvalidOperationException("libpcap isn't installed.");
+            return;
+        }
         var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "Npcap");
         NativeLibrary.Load(Path.Combine(dir, "Packet.dll"));
         NativeLibrary.Load(Path.Combine(dir, "wpcap.dll"));
@@ -264,9 +323,6 @@ internal static class Npcap
     }
 
     public static string Error(IntPtr h) => h == IntPtr.Zero ? "unknown error" : Marshal.PtrToStringAnsi(pcap_geterr(h)) ?? "unknown error";
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct pcap_pkthdr { public int tv_sec; public int tv_usec; public uint caplen; public uint len; }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct bpf_program { public uint bf_len; public IntPtr bf_insns; }

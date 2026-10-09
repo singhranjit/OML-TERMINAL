@@ -78,7 +78,7 @@ public sealed partial class WifiAnalyzerView : UserControl, IToolView
     {
         try
         {
-            var live = new WlanSource();
+            var live = WifiSources.CreateLocal();
             var adapters = live.Adapters();
             if (adapters.Count == 0)
             {

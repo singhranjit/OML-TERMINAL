@@ -97,6 +97,7 @@ public static class CaptureCommands
 
     public static string? FindTshark()
     {
+        if (!OperatingSystem.IsWindows()) return FindOnPath("tshark", "/Applications/Wireshark.app/Contents/MacOS/tshark");
         var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var candidates = new[] { Path.Combine(pf, @"Wireshark\tshark.exe"), @"C:\Program Files (x86)\Wireshark\tshark.exe" };
         return candidates.FirstOrDefault(File.Exists);
@@ -104,10 +105,15 @@ public static class CaptureCommands
 
     public static string? FindWireshark()
     {
+        if (!OperatingSystem.IsWindows()) return FindOnPath("wireshark", "/Applications/Wireshark.app/Contents/MacOS/Wireshark");
         var tshark = FindTshark();
         var ws = tshark is null ? null : Path.Combine(Path.GetDirectoryName(tshark)!, "Wireshark.exe");
         return ws is not null && File.Exists(ws) ? ws : null;
     }
+
+    private static string? FindOnPath(string tool, string macAppPath) =>
+        (Environment.GetEnvironmentVariable("PATH") ?? "/usr/bin:/bin").Split(Path.PathSeparator)
+            .Select(d => Path.Combine(d, tool)).Append(macAppPath).FirstOrDefault(File.Exists);
 
     /// <summary>"1. \Device\NPF_{...} (Ethernet)" lines from tshark -D.</summary>
     public static async Task<IReadOnlyList<string>> ListLocalInterfacesAsync()
@@ -169,7 +175,7 @@ public sealed class PacketCaptureRunner
     private async Task RunLocalAsync(CaptureRequest request, CancellationToken ct)
     {
         var tshark = CaptureCommands.FindTshark() ?? throw new FileNotFoundException(
-            "tshark.exe not found. Install Wireshark (with Npcap) to capture on this PC, or capture remotely over SSH.");
+            OperatingSystem.IsWindows() ? "tshark.exe not found. Install Wireshark (with Npcap) to capture on this PC, or capture remotely over SSH." : "tshark not found. Install it (e.g. sudo apt install tshark) to capture on this computer, or capture remotely over SSH.");
         var psi = new ProcessStartInfo(tshark) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in CaptureCommands.TsharkArgs(request)) psi.ArgumentList.Add(a);
         LineReceived?.Invoke($"> {CaptureCommands.Build(request)}");

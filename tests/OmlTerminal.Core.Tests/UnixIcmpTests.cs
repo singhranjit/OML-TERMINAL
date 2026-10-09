@@ -114,3 +114,66 @@ public class UnixIcmpTests
         Assert.All(replies, r => Assert.Equal(IPStatus.Success, r.Status));
     }
 }
+
+public class LinuxLocalPortsTests
+{
+    private const string Tcp = """
+          sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+           0: 0100007F:0035 00000000:0000 0A 00000000:00000000 00:00000000 00000000   101        0 23456 1 0000000000000000 100 0 0 10 0
+           1: 4F01A8C0:0016 0401A8C0:D2F4 01 00000000:00000000 02:00098D5B 00000000     0        0 98765 4 0000000000000000 20 4 30 10 -1
+        """;
+
+    [Fact]
+    public void Parses_ipv4_tcp_with_owners()
+    {
+        var owners = new Dictionary<long, (int, string)> { [98765] = (4242, "sshd") };
+        var rows = OmlTerminal.Core.NetTools.LocalPorts.ParseProcNet(Tcp, "TCP", owners).ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(("127.0.0.1", 53, "LISTEN", "127.0.0.1:53", 0), (rows[0].LocalAddress, rows[0].LocalPort, rows[0].State, rows[0].Local, rows[0].RemotePort));
+        Assert.Equal("?", rows[0].ProcessName); // owner not visible (another user's process without root)
+        Assert.Equal(("192.168.1.79:22", "192.168.1.4:54004", "ESTABLISHED", 4242, "sshd"),
+            (rows[1].Local, rows[1].Remote, rows[1].State, rows[1].Pid, rows[1].ProcessName));
+    }
+
+    [Fact]
+    public void Parses_ipv6_and_mapped_addresses()
+    {
+        const string tcp6 = """
+              sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+               0: 00000000000000000000000000000000:0050 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 111 1
+               1: 00000000000000000000000001000000:0277 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 112 1
+               2: 0000000000000000FFFF00004F01A8C0:01BB 0000000000000000FFFF00000401A8C0:C350 01 00000000:00000000 00:00000000 00000000     0        0 113 1
+            """;
+        var rows = OmlTerminal.Core.NetTools.LocalPorts.ParseProcNet(tcp6, "TCPv6").ToList();
+        Assert.Equal("[::]:80", rows[0].Local);
+        Assert.Equal("[::1]:631", rows[1].Local);
+        Assert.Equal(("192.168.1.79:443", "192.168.1.4:50000"), (rows[2].Local, rows[2].Remote));
+    }
+
+    [Fact]
+    public void Udp_rows_have_no_peer()
+    {
+        const string udp = """
+              sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops
+             100: 00000000:0044 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 555 2 0000000000000000 0
+            """;
+        var row = Assert.Single(OmlTerminal.Core.NetTools.LocalPorts.ParseProcNet(udp, "UDP"));
+        Assert.Equal(("0.0.0.0:68", "*:*", ""), (row.Local, row.Remote, row.State));
+    }
+
+    [Fact]
+    public void Live_snapshot_on_linux_includes_a_listener_we_open()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        l.Start();
+        try
+        {
+            int port = ((System.Net.IPEndPoint)l.LocalEndpoint).Port;
+            var mine = OmlTerminal.Core.NetTools.LocalPorts.Snapshot().FirstOrDefault(e => e.LocalPort == port && e.State == "LISTEN");
+            Assert.NotNull(mine);
+            Assert.Equal(Environment.ProcessId, mine!.Pid);
+        }
+        finally { l.Stop(); }
+    }
+}

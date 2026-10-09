@@ -13,12 +13,14 @@ public sealed record LocalPortEntry(string Protocol, string LocalAddress, int Lo
     private static string FormatAddress(string a) => a.Contains(':') ? $"[{a}]" : a;
 }
 
-/// <summary>Everything netstat -ano shows, plus the owning process name, read straight from the IP Helper API
-/// (GetExtendedTcpTable / GetExtendedUdpTable) for IPv4 and IPv6.</summary>
+/// <summary>Everything netstat -ano shows, plus the owning process name. Windows: the IP Helper API
+/// (GetExtendedTcpTable / GetExtendedUdpTable). Linux: /proc/net/{tcp,udp}{,6}, with owners found through each
+/// process's open socket inodes (other users' processes need root to see, as with ss -p).</summary>
 public static class LocalPorts
 {
     public static IReadOnlyList<LocalPortEntry> Snapshot()
     {
+        if (OperatingSystem.IsLinux()) return LinuxSnapshot();
         if (!OperatingSystem.IsWindows()) return [];
         var names = new Dictionary<int, string>();
         string NameOf(int pid)
@@ -35,6 +37,95 @@ public static class LocalPorts
         list.AddRange(Udp(AF_INET, NameOf));
         list.AddRange(Udp(AF_INET6, NameOf));
         return list.OrderBy(e => e.State == "LISTEN" ? 0 : 1).ThenBy(e => e.LocalPort).ToList();
+    }
+
+    private static IReadOnlyList<LocalPortEntry> LinuxSnapshot()
+    {
+        var owners = SocketOwners();
+        var list = new List<LocalPortEntry>();
+        foreach (var (file, proto) in new[] { ("tcp", "TCP"), ("tcp6", "TCPv6"), ("udp", "UDP"), ("udp6", "UDPv6") })
+        {
+            string text;
+            try { text = File.ReadAllText("/proc/net/" + file); }
+            catch (IOException) { continue; }
+            catch (UnauthorizedAccessException) { continue; }
+            list.AddRange(ParseProcNet(text, proto, owners));
+        }
+        return list.OrderBy(e => e.State == "LISTEN" ? 0 : 1).ThenBy(e => e.LocalPort).ToList();
+    }
+
+    /// <summary>socket inode -> (pid, process name), from the "socket:[inode]" links in /proc/PID/fd.</summary>
+    private static Dictionary<long, (int Pid, string Name)> SocketOwners()
+    {
+        var map = new Dictionary<long, (int, string)>();
+        IEnumerable<string> pids;
+        try { pids = Directory.EnumerateDirectories("/proc"); } catch { return map; }
+        foreach (var dir in pids)
+        {
+            if (!int.TryParse(Path.GetFileName(dir), out int pid)) continue;
+            string? name = null;
+            try
+            {
+                foreach (var fd in Directory.EnumerateFileSystemEntries(Path.Combine(dir, "fd")))
+                {
+                    var target = new FileInfo(fd).LinkTarget;
+                    if (target is null || !target.StartsWith("socket:[", StringComparison.Ordinal)) continue;
+                    if (!long.TryParse(target.AsSpan(8, target.Length - 9), out long inode)) continue;
+                    name ??= ReadComm(dir);
+                    map.TryAdd(inode, (pid, name));
+                }
+            }
+            catch { } // another user's process (needs root), or it exited while we looked
+        }
+        return map;
+
+        static string ReadComm(string dir)
+        {
+            try { return File.ReadAllText(Path.Combine(dir, "comm")).Trim(); } catch { return "?"; }
+        }
+    }
+
+    /// <summary>Parses one /proc/net/tcp|udp[6] table. Addresses are hex in kernel (little-endian) word order.</summary>
+    public static IEnumerable<LocalPortEntry> ParseProcNet(string text, string protocol, IReadOnlyDictionary<long, (int Pid, string Name)>? owners = null)
+    {
+        bool tcp = protocol.StartsWith("TCP", StringComparison.Ordinal);
+        foreach (var raw in text.Split('\n').Skip(1))
+        {
+            var f = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (f.Length < 10) continue;
+            if (!TryEndpoint(f[1], out var localIp, out int localPort) || !TryEndpoint(f[2], out var remoteIp, out int remotePort)) continue;
+            int st = Convert.ToInt32(f[3], 16);
+            string state = tcp ? LinuxTcpState(st) : st == 1 ? "ESTABLISHED" : "";
+            long.TryParse(f[9], out long inode);
+            var (pid, name) = owners is not null && owners.TryGetValue(inode, out var o) ? o : (0, inode == 0 ? "" : "?");
+            // Like the Windows table: no peer for a listener, and UDP shows "*" (it's connectionless).
+            bool noPeer = !tcp || state == "LISTEN";
+            yield return new LocalPortEntry(protocol, localIp, localPort, tcp ? remoteIp : "*", noPeer ? 0 : remotePort, state, pid, name);
+        }
+    }
+
+    private static string LinuxTcpState(int st) => st switch
+    {
+        1 => "ESTABLISHED", 2 => "SYN_SENT", 3 => "SYN_RCVD", 4 => "FIN_WAIT1", 5 => "FIN_WAIT2", 6 => "TIME_WAIT",
+        7 => "CLOSED", 8 => "CLOSE_WAIT", 9 => "LAST_ACK", 10 => "LISTEN", 11 => "CLOSING", _ => st.ToString(),
+    };
+
+    private static bool TryEndpoint(string hex, out string address, out int port)
+    {
+        address = ""; port = 0;
+        int colon = hex.IndexOf(':');
+        if (colon < 0) return false;
+        port = Convert.ToInt32(hex[(colon + 1)..], 16);
+        var a = hex[..colon];
+        if (a.Length is not (8 or 32)) return false;
+        var bytes = new byte[a.Length / 2];
+        // Each 32-bit word is printed as the host's (little-endian) integer: reverse the bytes within every word.
+        for (int w = 0; w < bytes.Length / 4; w++)
+            for (int b = 0; b < 4; b++)
+                bytes[w * 4 + b] = Convert.ToByte(a.Substring(w * 8 + (3 - b) * 2, 2), 16);
+        var ip = new IPAddress(bytes);
+        address = ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4().ToString() : ip.ToString();
+        return true;
     }
 
     public static string TcpStateName(uint state) => state switch
