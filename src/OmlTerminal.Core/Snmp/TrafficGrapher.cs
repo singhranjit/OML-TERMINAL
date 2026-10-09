@@ -51,6 +51,7 @@ public sealed class TrafficGrapher : IDisposable
     private readonly ConcurrentDictionary<Guid, DateTime> _due = new();
     private readonly ConcurrentDictionary<Guid, bool> _hc = new();
     private readonly HashSet<(Guid, int)> _dirty = [];
+    private readonly ConcurrentDictionary<Guid, byte> _polling = new();
     private readonly List<TrafficAlert> _alerts = [];
     private readonly HashSet<(Guid, int, string)> _alerting = [];
     private CancellationTokenSource? _cts;
@@ -85,7 +86,11 @@ public sealed class TrafficGrapher : IDisposable
             }
             return list;
         }
-        catch (Exception e) when (e is IOException or JsonException) { return []; }
+        catch (Exception e) when (e is IOException or JsonException)
+        {
+            if (e is JsonException) UnreadableFile.Keep(TargetsFile);
+            return [];
+        }
     }
 
     public void SaveTargets()
@@ -114,6 +119,8 @@ public sealed class TrafficGrapher : IDisposable
         SaveTargets();
     }
 
+    private bool IsTarget(Guid id) { lock (_sync) return _targets.Any(t => t.Id == id); }
+
     public void Remove(Guid id)
     {
         lock (_sync) _targets.RemoveAll(t => t.Id == id);
@@ -129,7 +136,10 @@ public sealed class TrafficGrapher : IDisposable
             var file = ArchiveFile(k.Item1, k.Item2);
             if (File.Exists(file)) return JsonSerializer.Deserialize<TrafficArchive>(File.ReadAllText(file)) ?? new TrafficArchive();
         }
-        catch (Exception e) when (e is IOException or JsonException) { }
+        catch (Exception e) when (e is IOException or JsonException)
+        {
+            if (e is JsonException) UnreadableFile.Keep(ArchiveFile(k.Item1, k.Item2));
+        }
         return new TrafficArchive();
     });
 
@@ -166,6 +176,8 @@ public sealed class TrafficGrapher : IDisposable
 
     public async Task PollAsync(TrafficTarget t, CancellationToken ct)
     {
+        // A slow or unreachable device can take longer than its interval - never run two polls of it at once.
+        if (!_polling.TryAdd(t.Id, 0)) return;
         try
         {
             using var c = await SnmpClient.ConnectAsync(t.Host, t.Port, t.Credentials, 3000, 1, ct).ConfigureAwait(false);
@@ -176,6 +188,7 @@ public sealed class TrafficGrapher : IDisposable
             var counters = await IfMib.CountersAsync(c, t.Interfaces.Select(i => i.Index).ToList(), hc, ct).ConfigureAwait(false);
             foreach (var (idx, cur) in counters)
             {
+                if (!IsTarget(t.Id)) return; // removed while this poll was in flight
                 if (_last.TryGetValue((t.Id, idx), out var prev) && IfMib.Rate(prev, cur) is { } rate)
                 {
                     var a = Archive(t.Id, idx);
@@ -192,6 +205,7 @@ public sealed class TrafficGrapher : IDisposable
         {
             _status[t.Id] = Status(t.Id) with { LastPoll = DateTime.Now, Error = e.Message };
         }
+        finally { _polling.TryRemove(t.Id, out _); }
         Polled?.Invoke(t.Id);
     }
 
@@ -226,7 +240,7 @@ public sealed class TrafficGrapher : IDisposable
         lock (_dirty) { dirty = _dirty.ToList(); _dirty.Clear(); }
         foreach (var k in dirty)
         {
-            if (!_archives.TryGetValue(k, out var a)) continue;
+            if (!_archives.TryGetValue(k, out var a) || !IsTarget(k.Item1)) continue;
             string json;
             lock (a) json = JsonSerializer.Serialize(a);
             try

@@ -21,7 +21,7 @@ public sealed partial class ScriptsView : UserControl, IToolView
         _runner.LineReceived += line => DispatcherQueue.TryEnqueue(() => OutputBox.Text += line + "\n");
         Loaded += (_, _) =>
         {
-            SessionBox.ItemsSource = _ctx.Sessions();
+            ToolUi.FillSessions(SessionBox, _ctx.Sessions());
             Refresh();
         };
     }

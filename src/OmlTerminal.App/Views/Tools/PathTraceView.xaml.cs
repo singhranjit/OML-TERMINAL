@@ -95,9 +95,8 @@ public sealed partial class PathTraceView : UserControl, IToolView
         Loaded += (_, _) =>
         {
             var sessions = _ctx.SshSessions();
-            StartDeviceBox.ItemsSource = sessions;
-            McastStartBox.ItemsSource = sessions;
-            if (sessions.Count > 0) { StartDeviceBox.SelectedIndex = 0; McastStartBox.SelectedIndex = 0; }
+            ToolUi.FillSessions(StartDeviceBox, sessions, selectFirst: true);
+            ToolUi.FillSessions(McastStartBox, sessions, selectFirst: true);
             _refresh.Start();
         };
         Unloaded += (_, _) => _refresh.Stop();
@@ -122,7 +121,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
         PathEmpty.Text = m switch
         {
             0 => "Enter a destination and press Start. Each hop appears as it answers; colours show where loss and delay really are - green clean, amber suspect, red the problem.",
-            1 => "Pick the router nearest the source (a saved SSH session) and the destination. The tool logs in hop by hop - read-only show commands only - following the routing table, CDP/LLDP and finally ARP and MAC tables to the destination's switch port.",
+            1 => "WireWalk: pick the router nearest the source (a saved SSH session) and the destination. It logs in hop by hop - read-only show commands only - following the routing table, CDP/LLDP and finally ARP and MAC tables to the destination's switch port.",
             _ => "Pick the router nearest the receivers, the source and the group. RPF walk checks every router's RPF, (S,G) state, counters and PIM neighbors back to the source; mtrace runs the router's own multicast traceroute.",
         };
         _dirty = true;
@@ -314,7 +313,7 @@ public sealed partial class PathTraceView : UserControl, IToolView
         }
     }
 
-    // ======================= Through my devices =======================
+    // ======================= WireWalk (through my devices) =======================
 
     private void DeviceDestBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {

@@ -26,7 +26,7 @@ public sealed partial class StructuredOutputView : UserControl, IToolView
         _ctx = ctx;
         InitializeComponent();
         _parseDelay.Tick += (_, _) => { _parseDelay.Stop(); ParseInput(); };
-        Loaded += (_, _) => DeviceBox.ItemsSource = _ctx.SshSessions();
+        Loaded += (_, _) => ToolUi.FillSessions(DeviceBox, _ctx.SshSessions());
     }
 
     private void Grab_Click(object sender, RoutedEventArgs e)

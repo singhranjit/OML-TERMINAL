@@ -28,7 +28,7 @@ public sealed class IcmpProbeSender : IProbeSender
     public async Task<ProbeResult> SendAsync(IPAddress target, int ttl, int timeoutMs, int size, CancellationToken ct)
     {
         if (OperatingSystem.IsWindows() && target.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-            return await Task.Run(() => NativeIcmp.Send(target, ttl, timeoutMs, size), ct).ConfigureAwait(false);
+            return await NativeIcmp.SendAsync(target, ttl, timeoutMs, size).ConfigureAwait(false);
         using var ping = new Ping();
         var sw = Stopwatch.StartNew();
         try
@@ -46,8 +46,9 @@ public sealed class IcmpProbeSender : IProbeSender
 }
 
 /// <summary>
-/// IPv4 ICMP echo through Windows' own IcmpSendEcho (no admin rights). Unlike .NET's Ping it keeps the round-trip time
-/// Windows measured for TTL-expired replies - the hop latencies tracert shows - instead of a stopwatch around an async call.
+/// IPv4 ICMP echo through Windows' own IcmpSendEcho2 (no admin rights). Unlike .NET's Ping it keeps the round-trip time
+/// Windows measured for TTL-expired replies - the hop latencies tracert shows. Asynchronous: waiting for a reply (or a
+/// timeout) holds no thread, so hundreds of probes to dead hosts can't starve the app's thread pool.
 /// </summary>
 internal static class NativeIcmp
 {
@@ -58,6 +59,8 @@ internal static class NativeIcmp
         public IntPtr OptionsData;
     }
 
+    private const int ErrorIoPending = 997, IpReqTimedOut = 11010;
+
     [DllImport("iphlpapi.dll", SetLastError = true)]
     private static extern IntPtr IcmpCreateFile();
 
@@ -65,39 +68,70 @@ internal static class NativeIcmp
     private static extern bool IcmpCloseHandle(IntPtr handle);
 
     [DllImport("iphlpapi.dll", SetLastError = true)]
-    private static extern uint IcmpSendEcho(IntPtr handle, uint destination, byte[] request, ushort requestSize,
-        ref IpOptionInformation options, IntPtr reply, uint replySize, uint timeout);
+    private static extern uint IcmpSendEcho2(IntPtr handle, IntPtr evt, IntPtr apcRoutine, IntPtr apcContext, uint destination,
+        IntPtr request, ushort requestSize, IntPtr options, IntPtr reply, uint replySize, uint timeout);
 
-    public static ProbeResult Send(IPAddress target, int ttl, int timeoutMs, int size)
+    [DllImport("iphlpapi.dll", SetLastError = true)]
+    private static extern uint IcmpParseReplies(IntPtr reply, uint replySize);
+
+    public static async Task<ProbeResult> SendAsync(IPAddress target, int ttl, int timeoutMs, int size)
     {
         var handle = IcmpCreateFile();
         if (handle == new IntPtr(-1)) return new ProbeResult(null, IPStatus.Unknown, 0);
         int replySize = 64 + size + 64;
         var reply = Marshal.AllocHGlobal(replySize);
+        var request = Marshal.AllocHGlobal(Math.Max(1, size));
+        var options = Marshal.AllocHGlobal(Marshal.SizeOf<IpOptionInformation>());
+        using var done = new ManualResetEvent(false);
         try
         {
-            var opts = new IpOptionInformation { Ttl = (byte)Math.Clamp(ttl, 1, 255), Flags = 0x02 }; // don't fragment
+            Marshal.Copy(new byte[Math.Max(1, size)], 0, request, Math.Max(1, size));
+            Marshal.StructureToPtr(new IpOptionInformation { Ttl = (byte)Math.Clamp(ttl, 1, 255), Flags = 0x02 }, options, false); // don't fragment
             uint dest = BitConverter.ToUInt32(target.GetAddressBytes(), 0);
             var sw = Stopwatch.StartNew();
-            uint n = IcmpSendEcho(handle, dest, new byte[size], (ushort)size, ref opts, reply, (uint)replySize, (uint)timeoutMs);
+            uint n = IcmpSendEcho2(handle, done.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, IntPtr.Zero, dest, request, (ushort)size,
+                options, reply, (uint)replySize, (uint)timeoutMs);
             if (n == 0)
             {
                 int err = Marshal.GetLastWin32Error();
-                return new ProbeResult(null, err == 11010 ? IPStatus.TimedOut : (IPStatus)err, 0);
+                if (err != ErrorIoPending) return new ProbeResult(null, err == IpReqTimedOut ? IPStatus.TimedOut : (IPStatus)err, 0);
+                await WaitAsync(done, timeoutMs + 2000).ConfigureAwait(false);
+                double elapsed = sw.Elapsed.TotalMilliseconds;
+                n = IcmpParseReplies(reply, (uint)replySize);
+                if (n == 0)
+                {
+                    err = Marshal.GetLastWin32Error();
+                    return new ProbeResult(null, err == IpReqTimedOut || err == 0 ? IPStatus.TimedOut : (IPStatus)err, 0);
+                }
+                return Read(reply, elapsed);
             }
-            uint addr = (uint)Marshal.ReadInt32(reply, 0);
-            var status = (IPStatus)Marshal.ReadInt32(reply, 4);
-            uint rtt = (uint)Marshal.ReadInt32(reply, 8);
-            // Windows reports whole milliseconds; under 1 ms reads as 0 - use the (tight, synchronous) stopwatch there.
-            double ms = rtt > 0 ? rtt : Math.Min(sw.Elapsed.TotalMilliseconds, 1.0);
-            var from = new IPAddress(addr);
-            return new ProbeResult(status == IPStatus.TimedOut ? null : from, status, ms);
+            return Read(reply, sw.Elapsed.TotalMilliseconds);
         }
         finally
         {
+            Marshal.FreeHGlobal(options);
+            Marshal.FreeHGlobal(request);
             Marshal.FreeHGlobal(reply);
             IcmpCloseHandle(handle);
         }
+    }
+
+    private static ProbeResult Read(IntPtr reply, double elapsed)
+    {
+        uint addr = (uint)Marshal.ReadInt32(reply, 0);
+        var status = (IPStatus)Marshal.ReadInt32(reply, 4);
+        uint rtt = (uint)Marshal.ReadInt32(reply, 8);
+        // Windows reports whole milliseconds; under 1 ms reads as 0 - show the measured time, capped at 1 ms.
+        double ms = rtt > 0 ? rtt : Math.Min(elapsed, 1.0);
+        return new ProbeResult(status == IPStatus.TimedOut ? null : new IPAddress(addr), status, ms);
+    }
+
+    /// <summary>Completes when the event is signalled, without blocking a thread while waiting.</summary>
+    private static Task WaitAsync(WaitHandle handle, int timeoutMs)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reg = ThreadPool.RegisterWaitForSingleObject(handle, (state, _) => ((TaskCompletionSource)state!).TrySetResult(), tcs, timeoutMs, true);
+        return tcs.Task.ContinueWith(_ => reg.Unregister(null), TaskScheduler.Default);
     }
 }
 
@@ -256,9 +290,6 @@ public sealed class ContinuousTrace
     public async Task RunAsync(CancellationToken ct, int? maxRounds = null)
     {
         Started = DateTime.Now;
-        // Replies complete on pool threads; if the pool has to grow mid-round, the wait shows up as fake latency.
-        ThreadPool.GetMinThreads(out var workers, out var io);
-        if (workers < 64) ThreadPool.SetMinThreads(64, Math.Max(io, 64));
         while (!ct.IsCancellationRequested && (maxRounds is null || Rounds < maxRounds))
         {
             var sw = Stopwatch.StartNew();

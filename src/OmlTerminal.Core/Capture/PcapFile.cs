@@ -40,9 +40,17 @@ public sealed class PcapWriter : IDisposable
 /// <summary>Reads libpcap (either byte order, micro- or nanosecond) and pcapng files.</summary>
 public static class PcapReader
 {
-    public static IReadOnlyList<RawFrame> Read(string path)
+    public static IReadOnlyList<RawFrame> Read(string path) => Read(path, long.MaxValue, out _);
+
+    /// <summary>Reads at most <paramref name="maxBytes"/> of the file (a multi-gigabyte capture would otherwise be
+    /// loaded whole); <paramref name="truncated"/> says whether there was more.</summary>
+    public static IReadOnlyList<RawFrame> Read(string path, long maxBytes, out bool truncated)
     {
-        var bytes = File.ReadAllBytes(path);
+        using var f = File.OpenRead(path);
+        long take = Math.Min(f.Length, Math.Min(maxBytes, Array.MaxLength));
+        truncated = take < f.Length;
+        var bytes = new byte[take];
+        f.ReadExactly(bytes);
         return Read(bytes);
     }
 

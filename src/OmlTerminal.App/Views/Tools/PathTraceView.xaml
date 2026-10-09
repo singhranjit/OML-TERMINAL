@@ -22,7 +22,7 @@
         <Grid Grid.Row="1">
             <SelectorBar x:Name="Modes" SelectionChanged="Modes_SelectionChanged">
                 <SelectorBarItem Text="From this PC" IsSelected="True" />
-                <SelectorBarItem Text="Through my devices" />
+                <SelectorBarItem Text="WireWalk" ToolTipService.ToolTip="Hop by hop through your own routers and switches, down to the host's switch port" />
                 <SelectorBarItem Text="Multicast" />
             </SelectorBar>
             <TextBlock x:Name="StatusText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12.5" Opacity="0.75" TextTrimming="CharacterEllipsis" MaxWidth="640" />
@@ -52,7 +52,7 @@
                         <Button Click="SaveCsv_Click" ToolTipService.ToolTip="Save hop statistics as CSV" AutomationProperties.Name="Save CSV"><FontIcon Glyph="&#xE74E;" FontSize="12" /></Button>
                     </StackPanel>
                 </Grid>
-                <!-- Through my devices -->
+                <!-- WireWalk: hop by hop through your own devices -->
                 <Grid x:Name="DeviceControls" ColumnSpacing="10" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="260" />

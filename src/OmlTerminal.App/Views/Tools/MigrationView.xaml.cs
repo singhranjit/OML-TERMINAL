@@ -58,7 +58,7 @@ public sealed partial class MigrationView : UserControl, IToolView
         foreach (FirewallVendor v in Enum.GetValues<FirewallVendor>()) TargetVendorBox.Items.Add(new VendorItem(v));
         TargetVendorBox.SelectedIndex = 0;
         InterfaceList.ItemsSource = _interfaceRows;
-        Loaded += (_, _) => DeviceBox.ItemsSource = _ctx.SshSessions();
+        Loaded += (_, _) => ToolUi.FillSessions(DeviceBox, _ctx.SshSessions());
     }
 
     private async void Pull_Click(object sender, RoutedEventArgs e)

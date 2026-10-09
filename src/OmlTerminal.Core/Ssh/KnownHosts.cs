@@ -33,7 +33,11 @@ public sealed class KnownHostStore(string path)
     {
         if (_entries is not null) return _entries;
         try { _entries = File.Exists(Path) ? JsonSerializer.Deserialize<List<KnownHost>>(File.ReadAllText(Path), JsonFile.Options) ?? [] : []; }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { _entries = []; }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            if (ex is JsonException) Persistence.UnreadableFile.Keep(Path);
+            _entries = [];
+        }
         return _entries;
     }
 

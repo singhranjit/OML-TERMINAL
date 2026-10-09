@@ -109,11 +109,18 @@ public sealed class PingMonitor
     /// <summary>A consistent copy of every host's numbers (the probe tasks keep writing while the UI reads).</summary>
     public IReadOnlyList<PingHostView> Snapshot(int samples = 300)
     {
-        lock (_sync)
-            return _hosts.Select(h => new PingHostView(h, h.Target.Host, h.Target.Name, h.Target.Group, h.Address?.ToString(), h.State, h.StateSince,
-                h.Sent, h.Received, h.Last, h.Best, h.Worst, h.RecentAvg, h.RecentJitter, h.RecentLoss, h.TotalLoss, h.Mos, h.Outages, h.LastError,
-                h.Samples.Skip(Math.Max(0, h.Samples.Count - samples)).ToList())).ToList();
+        lock (_sync) return _hosts.Select(h => View(h, samples)).ToList();
     }
+
+    /// <summary>One host with a longer history (the detail graph) - without copying every other host's samples.</summary>
+    public PingHostView? Snapshot(PingHostState host, int samples)
+    {
+        lock (_sync) return _hosts.Contains(host) ? View(host, samples) : null;
+    }
+
+    private static PingHostView View(PingHostState h, int samples) => new(h, h.Target.Host, h.Target.Name, h.Target.Group, h.Address?.ToString(), h.State, h.StateSince,
+                h.Sent, h.Received, h.Last, h.Best, h.Worst, h.RecentAvg, h.RecentJitter, h.RecentLoss, h.TotalLoss, h.Mos, h.Outages, h.LastError,
+                h.Samples.Skip(Math.Max(0, h.Samples.Count - samples)).ToList());
 
     public PingHostState Add(PingTarget t)
     {

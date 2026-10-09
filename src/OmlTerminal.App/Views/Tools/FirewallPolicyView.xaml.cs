@@ -70,7 +70,7 @@ public sealed partial class FirewallPolicyView : UserControl, IToolView
         if (path is null) return;
         LoadFile(path);
         StatusText.Text = "Sample saved and opened in Excel. Edit the rows, save (keep CSV format) - this page reloads automatically.";
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { StatusText.Text = $"Saved to {path}, but couldn't open it: {ex.Message}"; }
     }
 

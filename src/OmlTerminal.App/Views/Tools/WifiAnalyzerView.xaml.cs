@@ -52,7 +52,7 @@ public sealed partial class WifiAnalyzerView : UserControl, IToolView
     private IWifiSource? _source;
     private WifiAdapter? _adapter;
     private WifiConnection? _connection;
-    private bool _busy, _refreshingList;
+    private bool _busy, _refreshingList, _started;
 
     private SurveyProject _survey = new();
     private (int W, int H) _planSize;
@@ -62,7 +62,14 @@ public sealed partial class WifiAnalyzerView : UserControl, IToolView
     {
         InitializeComponent();
         _timer.Tick += async (_, _) => await TickAsync();
-        Loaded += (_, _) => { OpenLiveSource(); UpdateLegend(); };
+        // Loaded fires again on every tab switch: open the adapter once, or a replayed scan is thrown away.
+        Loaded += (_, _) =>
+        {
+            if (_started) return;
+            _started = true;
+            OpenLiveSource();
+            UpdateLegend();
+        };
     }
 
     // ---------- sources ----------

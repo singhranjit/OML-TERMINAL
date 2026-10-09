@@ -2211,6 +2211,17 @@ public sealed partial class MainWindow : Window
         Add("\uE713", "Settings", "Settings", () => Settings_Click(this, new RoutedEventArgs()));
     }
 
+    /// <summary>An unexpected error, logged to crash.log and shown in a banner instead of closing the app.</summary>
+    public void ReportError(Exception e)
+    {
+        void Show()
+        {
+            ErrorBar.Message = $"{e.Message} (details saved to crash.log)";
+            ErrorBar.IsOpen = true;
+        }
+        if (DispatcherQueue.HasThreadAccess) Show(); else DispatcherQueue.TryEnqueue(Show);
+    }
+
     private static string ShortLabel(ToolDescriptor t) => t.Id switch
     {
         "portscan" => "Ports",

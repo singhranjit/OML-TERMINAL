@@ -59,7 +59,7 @@ public sealed class CredentialStore(string? path = null, SecretProtector? protec
             }
             return all.Where(c => c.Name.Length > 0).ToList();
         }
-        catch (JsonException) { return new(); }
+        catch (JsonException) { UnreadableFile.Keep(Path); return new(); }
     }
 
     private string Open(string value)

@@ -114,6 +114,8 @@ public static class TrafficAnalysis
             .Select(p => $"{p.DstIp}:{p.DstPort}>{p.SrcIp}:{p.SrcPort}").ToHashSet();
         var resetBack = tcp.Where(p => p.Flags.HasFlag(TcpFlags.Rst)).Select(p => $"{p.DstIp}:{p.DstPort}>{p.SrcIp}:{p.SrcPort}").ToHashSet();
         var syns = tcp.Where(p => p.Flags == TcpFlags.Syn).ToList();
+        // An ICMP "destination unreachable" about a connection means something on the path rejected it - not silence.
+        var rejected = packets.Where(p => p.IcmpType == 3 && p.IcmpAbout is not null).GroupBy(p => p.IcmpAbout!).ToDictionary(x => x.Key, x => x.First());
         foreach (var g in syns.GroupBy(p => $"{p.DstIp}:{p.DstPort}"))
         {
             var keys = g.Select(p => $"{p.SrcIp}:{p.SrcPort}>{p.DstIp}:{p.DstPort}").Distinct().ToList();
@@ -122,7 +124,15 @@ public static class TrafficAnalysis
             var dst = g.First();
             if (refused > 0)
                 list.Add(new(InsightSeverity.Problem, $"Connections refused by {g.Key}", $"{refused} attempt(s) got a TCP reset - nothing is listening on port {dst.DstPort}, or a firewall rejects it.", $"ip.addr == {dst.DstIp} && tcp.port == {dst.DstPort} && (tcp.flags.syn || tcp.flags.reset)"));
-            if (silent > 0 && g.Count() > 1)
+            if (silent > 0 && rejected.TryGetValue(g.Key, out var icmp))
+            {
+                var why = System.Text.RegularExpressions.Regex.Match(icmp.Info, @"Destination unreachable \((?<w>[^)]+)\)") is { Success: true } m ? m.Groups["w"].Value : "unreachable";
+                list.Add(new(InsightSeverity.Problem, $"Connections to {g.Key} rejected by {icmp.SrcIp}",
+                    $"{silent} attempt(s) got ICMP destination unreachable ({why}) from {icmp.SrcIp}" +
+                    (why.Contains("prohibited", StringComparison.OrdinalIgnoreCase) ? " - a firewall or ACL there is blocking it." : " - check routing toward the destination."),
+                    $"(ip.addr == {dst.DstIp} && tcp.port == {dst.DstPort}) || (icmp.type == 3 && ip.src == {icmp.SrcIp})"));
+            }
+            else if (silent > 0 && g.Count() > 1)
                 list.Add(new(InsightSeverity.Problem, $"No answer from {g.Key}", $"{silent} connection attempt(s) were never answered - the host is down, unroutable, or a firewall drops the traffic.", $"ip.addr == {dst.DstIp} && tcp.port == {dst.DstPort}"));
         }
 

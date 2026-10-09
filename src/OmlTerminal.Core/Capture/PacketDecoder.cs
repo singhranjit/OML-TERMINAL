@@ -67,12 +67,23 @@ public sealed class DecodedPacket
     public string? ArpSenderMac { get; set; }
     public int? IcmpType { get; set; }
     public int? IcmpCode { get; set; }
+    /// <summary>For an ICMP error: the original packet's destination it's about ("10.0.0.5:22", or just the address).</summary>
+    public string? IcmpAbout { get; set; }
     public bool StpTopologyChange { get; set; }
     public string? Ssid { get; set; }
     public int? SignalDbm { get; set; }
 
     public HashSet<string> Protocols { get; } = new(StringComparer.OrdinalIgnoreCase);
-    public List<PacketLayer> Layers { get; } = new();
+    private List<PacketLayer>? _layers;
+
+    /// <summary>False for packets decoded in bulk (live capture, opening a file): the per-field detail tree is then
+    /// rebuilt on demand when someone looks at the packet - it's about half of each packet's memory.</summary>
+    internal bool CollectLayers { get; init; } = true;
+
+    /// <summary>The protocol tree for the details pane.</summary>
+    public List<PacketLayer> Layers => _layers ??= CollectLayers
+        ? new()
+        : PacketDecoder.Decode(Data, LinkType, Number, Timestamp, OriginalLength).Layers;
 
     public bool IsBroadcast => DstMac == "ff:ff:ff:ff:ff:ff";
     public bool IsMulticast => DstMac is { Length: 17 } m && !IsBroadcast && (Convert.ToByte(m[..2], 16) & 1) == 1;
@@ -83,9 +94,10 @@ public sealed class DecodedPacket
 /// CDP, LLDP, STP and basic 802.11 management frames.</summary>
 public static class PacketDecoder
 {
-    public static DecodedPacket Decode(byte[] data, int linkType, int number, DateTime timestamp, int originalLength)
+    /// <param name="details">False when decoding many packets at once: the detail tree is skipped and rebuilt on demand.</param>
+    public static DecodedPacket Decode(byte[] data, int linkType, int number, DateTime timestamp, int originalLength, bool details = true)
     {
-        var p = new DecodedPacket { Number = number, Timestamp = timestamp, Data = data, OriginalLength = originalLength, LinkType = linkType };
+        var p = new DecodedPacket { Number = number, Timestamp = timestamp, Data = data, OriginalLength = originalLength, LinkType = linkType, CollectLayers = details };
         try
         {
             switch (linkType)
@@ -134,8 +146,10 @@ public static class PacketDecoder
     private static ushort U16(byte[] d, int o) => BinaryPrimitives.ReadUInt16BigEndian(d.AsSpan(o, 2));
     private static uint U32(byte[] d, int o) => BinaryPrimitives.ReadUInt32BigEndian(d.AsSpan(o, 4));
 
-    private static void Layer(DecodedPacket p, string name, string summary, int offset, int length, params (string, string)[] fields) =>
-        p.Layers.Add(new PacketLayer(name, summary, offset, Math.Max(0, Math.Min(length, p.Data.Length - offset)), fields));
+    private static void Layer(DecodedPacket p, string name, string summary, int offset, int length, params (string, string)[] fields)
+    {
+        if (p.CollectLayers) p.Layers.Add(new PacketLayer(name, summary, offset, Math.Max(0, Math.Min(length, p.Data.Length - offset)), fields));
+    }
 
     private static void Set(DecodedPacket p, string proto, string info)
     {
@@ -428,7 +442,12 @@ public static class PacketDecoder
         if (o + 28 > d.Length || d[o] >> 4 != 4) return "";
         int ihl = (d[o] & 0x0f) * 4, proto = d[o + 9];
         string dst = Ip4(d, o + 16);
-        if (proto is 6 or 17 && o + ihl + 4 <= d.Length) return $" for {(proto == 6 ? "TCP" : "UDP")} {dst}:{U16(d, o + ihl + 2)}";
+        if (proto is 6 or 17 && o + ihl + 4 <= d.Length)
+        {
+            p.IcmpAbout = $"{dst}:{U16(d, o + ihl + 2)}";
+            return $" for {(proto == 6 ? "TCP" : "UDP")} {p.IcmpAbout}";
+        }
+        p.IcmpAbout = dst;
         return $" for {dst}";
     }
 

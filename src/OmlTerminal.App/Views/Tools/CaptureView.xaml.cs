@@ -27,8 +27,7 @@ public sealed partial class CaptureView : UserControl, IToolView
         _flush.Tick += (_, _) => Flush();
         Loaded += async (_, _) =>
         {
-            DeviceBox.ItemsSource = _ctx.SshSessions();
-            if (DeviceBox.Items.Count > 0) DeviceBox.SelectedIndex = 0;
+            ToolUi.FillSessions(DeviceBox, _ctx.SshSessions(), selectFirst: true);
             _loaded = true;
             await UpdatePlatformAsync();
         };
@@ -213,7 +212,7 @@ public sealed partial class CaptureView : UserControl, IToolView
     {
         if (_lastPcap is null) return;
         var ws = CaptureCommands.FindWireshark();
-        if (ws is not null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ws, $"\"{_lastPcap}\"") { UseShellExecute = false });
+        if (ws is not null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ws, $"\"{_lastPcap}\"") { UseShellExecute = false })?.Dispose();
         else ToolUi.OpenInExplorer(_lastPcap);
     }
 

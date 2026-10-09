@@ -17,6 +17,7 @@ public sealed partial class HopIdentifier
     private readonly string? _backupRoot;
     private readonly bool _lookupAsn;
     private Dictionary<string, (string Device, string Interface)>? _interfaceMap;
+    private DateTime _mapBuilt;
     private readonly object _mapLock = new();
     private static readonly ConcurrentDictionary<string, HopOwner?> AsnCache = new();
 
@@ -112,7 +113,9 @@ public sealed partial class HopIdentifier
     {
         lock (_mapLock)
         {
-            if (_interfaceMap is not null) return _interfaceMap;
+            // Re-read now and then so backups taken while a trace tab is open are picked up.
+            if (_interfaceMap is not null && DateTime.UtcNow - _mapBuilt < TimeSpan.FromMinutes(5)) return _interfaceMap;
+            _mapBuilt = DateTime.UtcNow;
             _interfaceMap = new(StringComparer.Ordinal);
             if (_backupRoot is null || !Directory.Exists(_backupRoot)) return _interfaceMap;
             foreach (var deviceDir in Directory.EnumerateDirectories(_backupRoot))

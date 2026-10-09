@@ -97,7 +97,7 @@ A traceroute that draws the path and tells you, in plain English, where the prob
 
 ![Device path](docs/screenshots/device-path.webp)
 
-WireWalk (the **Through my devices** mode) starts from a saved SSH session and traces the path through your own network the way you would by hand.
+WireWalk (the **WireWalk** tab of Visual Trace) starts from a saved SSH session and traces the path through your own network the way you would by hand.
 It only runs read-only `show` commands.
 
 1. **Route lookup:** it looks up the route to the destination on each router (`show ip route <ip>`, the full table, NX-OS or Junos formats).

@@ -35,7 +35,7 @@ public sealed partial class TopologyView : UserControl, IToolView
         InitializeComponent();
         // A redraw rebuilds every node, which would yank one out from under the mouse mid-drag - wait for the drop.
         _redrawTimer.Tick += (_, _) => { if (_dirty && _dragKey is null) { _dirty = false; Redraw(); } };
-        Loaded += (_, _) => SeedBox.ItemsSource = _ctx.SshSessions();
+        Loaded += (_, _) => ToolUi.FillSessions(SeedBox, _ctx.SshSessions());
     }
 
     // ---------- crawl ----------

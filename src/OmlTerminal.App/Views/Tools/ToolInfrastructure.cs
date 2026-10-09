@@ -75,6 +75,19 @@ public static class ToolUi
 {
     public static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
 
+    /// <summary>
+    /// (Re)fills a session picker without losing what was picked. Tool tabs are unloaded and loaded again every time
+    /// the user switches tabs, so a Loaded handler that simply reset ItemsSource used to throw the choice away.
+    /// </summary>
+    public static void FillSessions(ComboBox box, IReadOnlyList<SessionProfile> sessions, bool selectFirst = false)
+    {
+        var keep = (box.SelectedItem as SessionProfile)?.Id;
+        box.ItemsSource = sessions;
+        var again = keep is null ? null : sessions.FirstOrDefault(s => s.Id == keep);
+        if (again is not null) box.SelectedItem = again;
+        else if (selectFirst && sessions.Count > 0) box.SelectedIndex = 0;
+    }
+
     public static void Copy(string text)
     {
         var package = new DataPackage();
@@ -115,7 +128,7 @@ public static class ToolUi
             var psi = File.Exists(path)
                 ? new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
                 : new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{path}\"");
-            System.Diagnostics.Process.Start(psi);
+            System.Diagnostics.Process.Start(psi)?.Dispose(); // we don't wait on it - release the handle
         }
         catch { }
     }

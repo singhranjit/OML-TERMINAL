@@ -11,7 +11,7 @@ public sealed class JsonSettingsStore(string? path = null)
     {
         if (!File.Exists(Path)) return new();
         try { return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path), JsonFile.Options) ?? new(); }
-        catch (JsonException) { return new(); }
+        catch (JsonException) { UnreadableFile.Keep(Path); return new(); }
     }
 
     public void Save(AppSettings settings) => JsonFile.WriteAtomic(Path, settings);

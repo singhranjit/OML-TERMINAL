@@ -90,7 +90,10 @@ public sealed partial class PingMonitorView : UserControl, IToolView
             TimeoutBox.Value = saved.TimeoutMs;
             foreach (var t in saved.Targets) _monitor.Add(t);
         }
-        catch (Exception e) when (e is IOException or JsonException) { }
+        catch (Exception e) when (e is IOException or JsonException)
+        {
+            if (e is JsonException) UnreadableFile.Keep(ListFile);
+        }
     }
 
     private void Save()
@@ -360,7 +363,7 @@ public sealed partial class PingMonitorView : UserControl, IToolView
     private void DrawDetail()
     {
         DetailCanvas.Children.Clear();
-        var v = _selected is null ? null : _monitor.Snapshot(3600).FirstOrDefault(x => x.Source == _selected);
+        var v = _selected is null ? null : _monitor.Snapshot(_selected, 3600);
         if (v is null) { DetailTitle.Text = "LATENCY · CLICK A HOST TO GRAPH IT"; return; }
         double w = DetailCanvas.ActualWidth, h = DetailCanvas.ActualHeight;
         if (w < 80 || h < 40) return;

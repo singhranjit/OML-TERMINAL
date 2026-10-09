@@ -189,6 +189,33 @@ public class PacketDecoderTests
     }
 
     [Fact]
+    public void Bulk_decoding_rebuilds_the_detail_tree_on_demand()
+    {
+        var frame = Frames.Eth(Frames.MacB, Frames.MacA, 0x0800, Frames.Ip("10.0.0.5", "10.0.0.53", 17, Frames.Udp(53001, 53, Frames.DnsQuery(7, "files.corp.example"))));
+        var full = PacketDecoder.Decode(frame, LinkTypes.Ethernet, 1, DateTime.Now, frame.Length);
+        var lean = PacketDecoder.Decode(frame, LinkTypes.Ethernet, 1, DateTime.Now, frame.Length, details: false);
+        Assert.Equal(full.Info, lean.Info);
+        Assert.Equal(full.Protocol, lean.Protocol);
+        Assert.Equal(full.Layers.Select(l => (l.Name, l.Summary, l.Offset, l.Length)), lean.Layers.Select(l => (l.Name, l.Summary, l.Offset, l.Length)));
+        Assert.Equal(4, lean.Layers.Count); // Ethernet, IPv4, UDP, DNS
+    }
+
+    [Fact]
+    public void Reading_a_capture_can_stop_at_a_size_limit()
+    {
+        var frame = Frames.Eth(Frames.Bcast, Frames.MacA, 0x0806, Frames.Arp(1, Frames.MacA, "10.0.0.5", "10.0.0.1"));
+        var path = Path.GetTempFileName();
+        using (var f = File.Create(path))
+        using (var w = new PcapWriter(f, LinkTypes.Ethernet))
+            for (int i = 0; i < 100; i++) w.Write(DateTime.Now, frame, frame.Length);
+        Assert.Equal(100, PcapReader.Read(path).Count);
+        var part = PcapReader.Read(path, 24 + 10 * (16 + frame.Length) + 5, out var truncated);
+        Assert.True(truncated);
+        Assert.Equal(10, part.Count); // the half-read 11th record is dropped, not misparsed
+        File.Delete(path);
+    }
+
+    [Fact]
     public void PcapRoundTrip()
     {
         var frame = Frames.Eth(Frames.Bcast, Frames.MacA, 0x0806, Frames.Arp(1, Frames.MacA, "10.0.0.5", "10.0.0.1"));
@@ -275,6 +302,26 @@ public class TrafficAnalysisTests
         Assert.Contains(insights, i => i.Title.StartsWith("TCP retransmissions: 10.0.0.5:50004"));
         Assert.Contains(insights, i => i.Title == "TCP zero window");
         Assert.All(insights.Where(i => i.Filter.Length > 0), i => DisplayFilter.Parse(i.Filter));
+    }
+
+    [Fact]
+    public void Icmp_rejection_is_reported_as_a_block_not_silence()
+    {
+        var syn = Frames.Ip("10.0.0.5", "10.99.0.10", 6, Frames.Tcp(53300, 22, 5, 0, TcpFlags.Syn));
+        var icmp = new byte[8 + 28];
+        icmp[0] = 3; icmp[1] = 13;                // destination unreachable, administratively prohibited
+        syn.AsSpan(0, 28).CopyTo(icmp.AsSpan(8)); // the original IP header + first 8 bytes of TCP
+        var packets = new[]
+        {
+            Frames.Decode(Frames.Eth(Frames.MacB, Frames.MacA, 0x0800, syn), 1, T0),
+            Frames.Decode(Frames.Eth(Frames.MacA, Frames.MacB, 0x0800, Frames.Ip("10.0.0.250", "10.0.0.5", 1, icmp)), 2, T0.AddMilliseconds(2)),
+        };
+        Assert.Equal("10.99.0.10:22", packets[1].IcmpAbout);
+        var insights = TrafficAnalysis.Insights(packets);
+        var i = Assert.Single(insights, x => x.Title == "Connections to 10.99.0.10:22 rejected by 10.0.0.250");
+        Assert.Contains("firewall or ACL", i.Detail);
+        Assert.DoesNotContain(insights, x => x.Title.StartsWith("No answer from"));
+        Assert.Equal(2, packets.Count(DisplayFilter.Parse(i.Filter).Matches));
     }
 
     [Fact]

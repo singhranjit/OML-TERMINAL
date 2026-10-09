@@ -24,7 +24,7 @@ public sealed partial class PasswordManagerView : UserControl, IToolView
     private readonly MainViewModel _vm;
     private Credential? _editing;
     private readonly HashSet<Guid> _linked = new();
-    private bool _refreshingLinks;
+    private bool _refreshingLinks, _shownOnce;
 
     public PasswordManagerView(ToolContext ctx)
     {
@@ -35,7 +35,12 @@ public sealed partial class PasswordManagerView : UserControl, IToolView
         SecurityBar.Message = _vm.Settings.HasMasterPassword
             ? "Nothing in the vault is readable without the master password."
             : "Only you, on this PC, can read the vault. Set a master password in Settings for a stronger key that also covers session passwords.";
-        Loaded += (_, _) => { RefreshList(); StartNew(); };
+        // Loaded fires again on every tab switch - only start a blank form the first time, or an edit in progress is lost.
+        Loaded += (_, _) =>
+        {
+            RefreshList(_editing?.Id);
+            if (!_shownOnce) { _shownOnce = true; StartNew(); }
+        };
     }
 
     private void RefreshList(Guid? select = null)

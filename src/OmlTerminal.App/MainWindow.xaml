@@ -440,5 +440,9 @@
                 <TextBlock x:Name="DragGhostText" FontSize="13" />
             </Border>
         </Canvas>
+
+        <!-- Shown when something fails unexpectedly - the error is logged and the app carries on. -->
+        <InfoBar x:Name="ErrorBar" Grid.RowSpan="5" Severity="Error" IsOpen="False" IsClosable="True" MaxWidth="560"
+                 HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,40" Title="Something went wrong" />
     </Grid>
 </Window>

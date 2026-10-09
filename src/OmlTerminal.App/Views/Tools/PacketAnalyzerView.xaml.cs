@@ -63,8 +63,11 @@ public sealed partial class PacketAnalyzerView : UserControl, IToolView
         try
         {
             var list = CaptureEngine.ListInterfaces();
+            var keep = (InterfaceBox.SelectedItem as CaptureInterface)?.Id; // Loaded runs again on every tab switch
             InterfaceBox.ItemsSource = list;
-            if (list.Count > 0) InterfaceBox.SelectedIndex = 0;
+            var again = list.FirstOrDefault(i => i.Id == keep);
+            if (again is not null) InterfaceBox.SelectedItem = again;
+            else if (list.Count > 0) InterfaceBox.SelectedIndex = 0;
             else StatusText.Text = "No capture-capable adapters found.";
         }
         catch (Exception ex) { StatusText.Text = $"Couldn't list adapters: {ex.Message}"; }
@@ -110,7 +113,7 @@ public sealed partial class PacketAnalyzerView : UserControl, IToolView
     {
         int n = Interlocked.Increment(ref _nextNumber);
         if (n > MaxPackets) return;
-        _incoming.Enqueue(PacketDecoder.Decode(f.Data, f.LinkType, n, f.Timestamp, f.OriginalLength));
+        _incoming.Enqueue(PacketDecoder.Decode(f.Data, f.LinkType, n, f.Timestamp, f.OriginalLength, details: false));
     }
 
     private void Drain()
@@ -193,15 +196,21 @@ public sealed partial class PacketAnalyzerView : UserControl, IToolView
         StatusText.Text = $"Reading {file.Name}…";
         try
         {
-            var packets = await Task.Run(() => PcapReader.Read(file.Path).Take(MaxPackets)
-                .Select((f, i) => PacketDecoder.Decode(f.Data, f.LinkType, i + 1, f.Timestamp, f.OriginalLength)).ToList());
+            bool truncated = false;
+            var packets = await Task.Run(() =>
+            {
+                var frames = PcapReader.Read(file.Path, 512L << 20, out truncated);
+                truncated |= frames.Count > MaxPackets;
+                return frames.Take(MaxPackets)
+                    .Select((f, i) => PacketDecoder.Decode(f.Data, f.LinkType, i + 1, f.Timestamp, f.OriginalLength, details: false)).ToList();
+            });
             Clear_Click(sender, e);
             _all.AddRange(packets);
             _nextNumber = packets.Count;
             _start = packets.FirstOrDefault()?.Timestamp ?? DateTime.Now;
             ApplyFilter();
             RefreshSide();
-            StatusText.Text = $"{file.Name} · {packets.Count:N0} packets";
+            StatusText.Text = $"{file.Name} · {packets.Count:N0} packets" + (truncated ? " - the first part of a larger file (split big captures with editcap to see the rest)" : "");
         }
         catch (Exception ex) { StatusText.Text = $"Couldn't open {file.Name}: {ex.Message}"; }
     }

@@ -51,7 +51,7 @@ public sealed partial class CopilotView : UserControl, IToolView
         Transcript.ItemsSource = _rows;
         Loaded += (_, _) =>
         {
-            DeviceBox.ItemsSource = _ctx.SshSessions();
+            ToolUi.FillSessions(DeviceBox, _ctx.SshSessions());
             BaseUrlBox.Text = _ctx.Settings.CopilotBaseUrl;
             ModelBox.Text = _ctx.Settings.CopilotModel;
             EnabledBox.IsOn = _ctx.Settings.CopilotEnabled;
