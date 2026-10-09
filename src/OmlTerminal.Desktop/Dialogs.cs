@@ -51,6 +51,25 @@ public static class Dialogs
         return await w.ShowDialog<bool>(owner);
     }
 
+    /// <summary>A larger free-text box (lists, pasted config). Returns the text, or null if cancelled.</summary>
+    public static async Task<string?> PromptMultilineAsync(Window owner, string title, string text, string placeholder = "", string okText = "OK", string initial = "")
+    {
+        var box = new TextBox
+        {
+            Text = initial, PlaceholderText = placeholder, AcceptsReturn = true, Height = 260, Width = 520, Margin = new Thickness(0, 12, 0, 0),
+            TextWrapping = TextWrapping.NoWrap, FontFamily = Tools.Ui.Mono, FontSize = 12.5,
+        };
+        var stack = new StackPanel { Children = { Body(text), box } };
+        var ok = new Button { Content = okText, Classes = { "accent" }, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var w = Shell(title, stack, cancel, ok);
+        w.MaxWidth = 700;
+        ok.Click += (_, _) => w.Close(box.Text ?? "");
+        cancel.Click += (_, _) => w.Close(null);
+        w.Opened += (_, _) => box.Focus(NavigationMethod.Tab);
+        return await w.ShowDialog<string?>(owner);
+    }
+
     /// <summary>Returns the entered text, or null if cancelled.</summary>
     public static async Task<string?> PromptAsync(Window owner, string title, string text, bool password = false, string okText = "OK", string initial = "")
     {
