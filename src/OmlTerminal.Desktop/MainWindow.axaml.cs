@@ -83,6 +83,9 @@ public partial class MainWindow : Window
 
     // ---------- session tree ----------
 
+    /// <summary>Reloads the sidebar after a tool added or changed sessions.</summary>
+    public void RefreshSessions() => RefreshTree();
+
     private void RefreshTree()
     {
         if (_vm.IsLocked) return;

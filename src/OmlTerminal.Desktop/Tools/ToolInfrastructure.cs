@@ -49,6 +49,7 @@ public static class ToolCatalog
         new("dns", "DNS Lookup", "dig-style queries against any resolver", "Network", _ => new DnsTool()),
         new("analyzer", "Packet Analyzer", "Capture on this computer's Ethernet or Wi-Fi (or open a pcap) - decode, filter, and get problems pointed out", "Network", c => new PacketAnalyzerTool(c)),
         new("hostmonitor", "Host Monitor", "Live load, memory, disk and uptime for saved SSH sessions", "Network", c => new HostMonitorTool(c)),
+        new("topology", "Topology Mapper", "Discover the network from one device over CDP/LLDP and draw a live, clickable map", "Network", c => new TopologyTool(c)),
         new("tables", "Structured Output", "Turn show-command output into a sortable, filterable table - CSV/Markdown export", "Network", c => new StructuredOutputTool(c)),
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "Network", _ => new SubnetTool()),
         new("backup", "Config Backup", "Pull running configs over SSH, detect changes, diff", "Security", c => new ConfigBackupTool(c)),
