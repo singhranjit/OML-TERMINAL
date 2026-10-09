@@ -565,4 +565,17 @@ public partial class MainWindow : Window
     }
 
     private void Status(string text) => StatusText.Text = text;
+
+    private Exception? _lastError;
+
+    /// <summary>Shows an unexpected error in a banner (it's also in crash.log) instead of closing the app.</summary>
+    public void ShowError(Exception ex)
+    {
+        _lastError = ex;
+        ErrorText.Text = $"Something went wrong: {ex.GetType().Name}: {ex.Message} - details are in crash.log.";
+        ErrorBar.IsVisible = true;
+    }
+
+    private void ErrorClose_Click(object? sender, RoutedEventArgs e) => ErrorBar.IsVisible = false;
+    private void ErrorCopy_Click(object? sender, RoutedEventArgs e) { if (_lastError is not null) ToolUi.Copy(_lastError.ToString()); }
 }

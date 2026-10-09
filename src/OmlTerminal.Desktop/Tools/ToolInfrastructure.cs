@@ -43,6 +43,7 @@ public static class ToolCatalog
         new("portscan", "Port Query", "TCP/UDP port check & scan with banner grab", "Network", _ => new PortScanTool()),
         new("localports", "Local Ports", "Listening & established sockets with owning process", "Network", _ => new LocalPortsTool()),
         new("ping", "Ping · Trace · Sweep", "ICMP ping, traceroute and subnet sweep", "Network", c => new PingTraceTool(c)),
+        new("pathtrace", "Visual Trace", "Live traceroute drawn as a path with a plain-English verdict, hop-by-hop path through your devices (WireWalk), and multicast trees", "Network", c => new PathTraceTool(c)),
         new("pingmon", "Ping Monitor", "Continuous ping to many hosts at once - latency, loss, jitter, MOS and an outage log", "Network", c => new PingMonitorTool(c)),
         new("dns", "DNS Lookup", "dig-style queries against any resolver", "Network", _ => new DnsTool()),
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "Network", _ => new SubnetTool()),

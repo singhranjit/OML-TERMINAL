@@ -16,6 +16,12 @@
       </FluentTheme.Palettes>
     </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <!-- Compact table headers: tool tables have many narrow numeric columns -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Padding" Value="8,0,0,0" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
     <Style Selector="TextBlock.muted">
       <Setter Property="Foreground" Value="{StaticResource OmlMuted}" />
     </Style>

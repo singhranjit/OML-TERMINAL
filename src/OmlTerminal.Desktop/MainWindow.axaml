@@ -46,6 +46,13 @@
       </DockPanel>
     </Border>
 
+    <Border x:Name="ErrorBar" DockPanel.Dock="Top" IsVisible="False" Background="#2A1A1E" BorderBrush="#FB7185" BorderThickness="0,0,0,1" Padding="12,6">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="×" Padding="8,0" Background="Transparent" Click="ErrorClose_Click" />
+        <Button DockPanel.Dock="Right" Content="Copy details" Padding="8,2" Margin="8,0" Click="ErrorCopy_Click" />
+        <TextBlock x:Name="ErrorText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="#FECDD3" />
+      </DockPanel>
+    </Border>
     <Grid x:Name="Body" ColumnDefinitions="260,4,*">
       <!-- Sidebar -->
       <Border x:Name="Sidebar" Background="{StaticResource OmlSidebar}" BorderBrush="{StaticResource OmlBorder}" BorderThickness="0,0,1,0">

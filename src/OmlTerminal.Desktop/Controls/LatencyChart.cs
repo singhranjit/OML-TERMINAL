@@ -19,6 +19,9 @@ public sealed class LatencyChart : Control
     /// <summary>Compact sparklines use a fixed slot width (the latest N pings fill from the right).</summary>
     public int Slots { get; set; } = 120;
     public bool ShowAxis { get; set; }
+    /// <summary>Optional reference level (e.g. the hop's average) drawn as a dashed amber line.</summary>
+    public double Mean { get; set; } = double.NaN;
+    private static readonly IPen MeanPen = new Pen(new SolidColorBrush(Color.FromArgb(200, 0xFB, 0xBF, 0x24)), 1, new DashStyle([4, 3], 0));
 
     public void SetSamples(IReadOnlyList<(DateTime At, double? Rtt)> samples, IBrush? stroke = null)
     {
@@ -73,6 +76,7 @@ public sealed class LatencyChart : Control
             }
         }
         Flush();
+        if (!double.IsNaN(Mean) && Mean <= max) ctx.DrawLine(MeanPen, new Point(left, Y(Mean)), new Point(w, Y(Mean)));
     }
 
     private static FormattedText Text(string s) =>

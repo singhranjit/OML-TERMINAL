@@ -194,11 +194,21 @@ public static class Ui
                     VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0), TextTrimming = TextTrimming.CharacterEllipsis,
                     FontFamily = mono ? Mono : FontFamily.Default,
                 };
-                tb.DataContextChanged += (_, _) =>
+                LiveRow? watched = null;
+                void Fill()
                 {
                     if (tb.DataContext is not T row) { tb.Text = ""; return; }
                     tb.Text = text(row);
-                    if (color is not null) tb.Foreground = color(row);
+                    if (color is not null && color(row) is { } brush) tb.Foreground = brush;
+                }
+                void OnRowChanged() => Fill();
+                tb.DataContextChanged += (_, _) =>
+                {
+                    // Live rows (updated in place, e.g. a running trace) re-read themselves when they change.
+                    if (watched is not null) watched.Changed -= OnRowChanged;
+                    watched = tb.DataContext as LiveRow;
+                    if (watched is not null) watched.Changed += OnRowChanged;
+                    Fill();
                 };
                 return tb;
             }),
@@ -208,9 +218,46 @@ public static class Ui
         return col;
     }
 
+    /// <summary>A custom cell (bars, icons) built once per cell element; <paramref name="update"/> runs whenever the
+    /// cell shows another row, or the same live row changes.</summary>
+    public static DataGridColumn Custom<T, TCell>(string header, double width, Func<TCell> create, Action<TCell, T> update) where TCell : Control
+    {
+        return new DataGridTemplateColumn
+        {
+            Header = header,
+            // 0 = take the remaining width
+            Width = width == 0 ? new DataGridLength(1, DataGridLengthUnitType.Star)
+                : new DataGridLength(width, double.IsNaN(width) ? DataGridLengthUnitType.Auto : DataGridLengthUnitType.Pixel),
+            CanUserSort = false,
+            CellTemplate = new FuncDataTemplate<T>((_, _) =>
+            {
+                var cell = create();
+                LiveRow? watched = null;
+                void Fill() { if (cell.DataContext is T row) update(cell, row); }
+                void OnRowChanged() => Fill();
+                cell.DataContextChanged += (_, _) =>
+                {
+                    if (watched is not null) watched.Changed -= OnRowChanged;
+                    watched = cell.DataContext as LiveRow;
+                    if (watched is not null) watched.Changed += OnRowChanged;
+                    Fill();
+                };
+                return cell;
+            }),
+        };
+    }
+
     private sealed class RowComparer<T>(Func<T, IComparable?> key) : IComparer
     {
         public int Compare(object? x, object? y) =>
             x is T a && y is T b ? Comparer<IComparable?>.Default.Compare(key(a), key(b)) : 0;
     }
+}
+
+/// <summary>A table row whose values change in place (a running trace, a live monitor): call Touch() after updating and
+/// every cell showing it re-reads - so selection and scroll position survive refreshes.</summary>
+public abstract class LiveRow
+{
+    public event Action? Changed;
+    public void Touch() => Changed?.Invoke();
 }
