@@ -70,6 +70,23 @@ public class ToolingTests
     }
 
     [Fact]
+    public void Shells_UnixListsLoginShellFirstAndDeduplicatesMergedUsrPaths()
+    {
+        const string etcShells = "# /etc/shells: valid login shells\n/bin/sh\n/usr/bin/sh\n/bin/bash\n/usr/bin/bash\n" +
+                                 "/usr/bin/rbash\n/usr/bin/git-shell\n/usr/bin/zsh\n/usr/bin/fish\n/opt/microsoft/powershell/7/pwsh\n";
+        var installed = new HashSet<string>(etcShells.Split('\n').Where(l => l.StartsWith('/')));
+        var shells = ShellCatalog.DetectUnix(etcShells, "/usr/bin/zsh", installed.Contains);
+
+        Assert.Equal(["Zsh (login shell)", "sh", "Bash", "Fish", "PowerShell 7"], shells.Select(s => s.Name));
+        Assert.Equal("-l", shells[2].Arguments);
+        Assert.Equal(ShellKind.Pwsh, shells[4].Kind);
+
+        // Listed but not installed (fish removed, /etc/shells not cleaned up) -> not offered.
+        installed.Remove("/usr/bin/fish");
+        Assert.DoesNotContain(ShellCatalog.DetectUnix(etcShells, null, installed.Contains), s => s.Kind == ShellKind.Fish);
+    }
+
+    [Fact]
     public void LocalTransport_QuotesPathsWithSpaces()
     {
         Assert.Equal("\"C:\\Program Files\\Git\\bin\\bash.exe\" --login -i",

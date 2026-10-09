@@ -143,16 +143,49 @@ public class TransportFactoryKeyAuthTests
 public class LocalTransportTests
 {
     // No test here spawns a real ConPTY process, matching how SshTransport/TelnetTransport have no live-network
-    // tests either - only pure logic (validation, factory dispatch, shell auto-detection) is unit-testable
-    // without an environment-dependent, potentially-flaky external dependency.
+    // tests either. The Unix pty is the exception: /bin/sh is always present there, and the pty plumbing
+    // (new session, controlling terminal, window size) is exactly what can't be checked any other way.
 
     [Fact]
     public void DefaultShell_ReturnsAnExistingExecutable()
     {
         var path = LocalTransport.DefaultShell();
         Assert.True(File.Exists(path), $"Expected '{path}' to exist.");
-        Assert.True(path.EndsWith("powershell.exe", StringComparison.OrdinalIgnoreCase)
-                 || path.EndsWith("cmd.exe", StringComparison.OrdinalIgnoreCase));
+        if (OperatingSystem.IsWindows())
+            Assert.True(path.EndsWith("powershell.exe", StringComparison.OrdinalIgnoreCase)
+                     || path.EndsWith("cmd.exe", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Unix_shell_runs_in_a_pty_with_the_requested_size()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var transport = new LocalTransport("/bin/sh", Path.GetTempPath(),
+            "-c 'stty size; tty; echo \"$TERM\"; exit 3'", new Dictionary<string, string> { ["OML_TEST"] = "1" });
+        var output = new System.Text.StringBuilder();
+        var closed = new TaskCompletionSource<string?>();
+        transport.DataReceived += b => { lock (output) output.Append(System.Text.Encoding.UTF8.GetString(b)); };
+        transport.Closed += e => closed.TrySetResult(e);
+
+        await transport.ConnectAsync(132, 43);
+        var done = await Task.WhenAny(closed.Task, Task.Delay(10_000));
+        Assert.Same(closed.Task, done);
+        Assert.Null(await closed.Task);
+        string text;
+        lock (output) text = output.ToString();
+        Assert.Contains("43 132", text);                    // TIOCSWINSZ applied before the shell started
+        Assert.Matches(@"/dev/(pts/\d+|ttys\d+)", text);    // stdin really is the pty, not a pipe
+        Assert.Contains("xterm-256color", text);
+    }
+
+    [Fact]
+    public void Arguments_split_like_a_shell_command_line()
+    {
+        Assert.Equal(["-l"], LocalTransport.SplitArguments("  -l "));
+        Assert.Equal(["-c", "echo hi there", "x y"], LocalTransport.SplitArguments("-c 'echo hi there' \"x y\""));
+        Assert.Equal(["a b", "it's"], LocalTransport.SplitArguments(@"a\ b ""it's"""));
+        Assert.Equal([""], LocalTransport.SplitArguments("''"));
+        Assert.Empty(LocalTransport.SplitArguments(""));
     }
 
     [Fact]

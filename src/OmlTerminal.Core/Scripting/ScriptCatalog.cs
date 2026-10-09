@@ -11,14 +11,22 @@ public sealed record ScriptDefinition(string Path, string Name, string Descripti
 /// "# Description: ..." (or "// Description: ...") comment line, if present, becomes the subtitle shown in the UI.</summary>
 public static class ScriptCatalog
 {
-    private static readonly Dictionary<string, (string Interpreter, string[] Args)> Interpreters =
-        new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>Interpreter per extension for this OS. On Linux/macOS: PowerShell scripts need PowerShell 7 (pwsh)
+    /// installed, Python is python3, and Windows batch files aren't offered at all.</summary>
+    private static readonly Dictionary<string, (string Interpreter, string[] Args)> Interpreters = OperatingSystem.IsWindows()
+        ? new(StringComparer.OrdinalIgnoreCase)
         {
             [".ps1"] = ("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]),
             [".py"] = ("python", []),
             [".cmd"] = ("cmd.exe", ["/c"]),
             [".bat"] = ("cmd.exe", ["/c"]),
             [".sh"] = ("bash", []),
+        }
+        : new(StringComparer.OrdinalIgnoreCase)
+        {
+            [".ps1"] = ("pwsh", ["-NoProfile", "-File"]),
+            [".py"] = ("python3", []),
+            [".sh"] = ("/bin/bash", []),
         };
 
     public static string DefaultDirectory => Path.Combine(AppPaths.DataDirectory, "scripts");

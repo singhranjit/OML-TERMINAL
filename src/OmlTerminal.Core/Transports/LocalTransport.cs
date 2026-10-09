@@ -39,16 +39,23 @@ public sealed class LocalTransport : ITerminalTransport
             : workingDirectory;
     }
 
-    /// <summary>PowerShell if present (the modern default on Windows 10/11), otherwise cmd.exe.</summary>
+    /// <summary>Windows: PowerShell if present (the modern default on Windows 10/11), otherwise cmd.exe.
+    /// Linux/macOS: the user's login shell ($SHELL), falling back to bash, then sh.</summary>
     public static string DefaultShell()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            var login = Environment.GetEnvironmentVariable("SHELL");
+            if (!string.IsNullOrWhiteSpace(login) && File.Exists(login)) return login;
+            return File.Exists("/bin/bash") ? "/bin/bash" : "/bin/sh";
+        }
         var pwsh = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe");
         return File.Exists(pwsh) ? pwsh : Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\cmd.exe");
     }
 
     public Task ConnectAsync(int cols, int rows, CancellationToken cancellationToken = default)
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Local shell sessions need Windows (ConPTY).");
+        if (!OperatingSystem.IsWindows()) return ConnectUnix(cols, rows);
 
         // Nothing upstream (TerminalSession.ConnectAsync, TerminalTabViewModel.ConnectAsync) disposes this
         // transport if this method throws - so a failure partway through must clean up after itself, or the
@@ -111,6 +118,73 @@ public sealed class LocalTransport : ITerminalTransport
     }
 
     private IntPtr _environmentBlock = IntPtr.Zero;
+    private UnixPty? _pty;
+
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    private Task ConnectUnix(int cols, int rows)
+    {
+        var env = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
+            env[(string)e.Key] = (string?)e.Value ?? "";
+        // A GUI app has no TERM of its own; the emulator speaks xterm. Overrides still win (a profile may set TERM).
+        env["TERM"] = "xterm-256color";
+        env["COLORTERM"] = "truecolor";
+        if (_environment is not null) foreach (var (k, v) in _environment) env[k] = v;
+
+        _pty = UnixPty.Start(_shellPath, SplitArguments(_arguments), _workingDirectory, env, Math.Max(1, cols), Math.Max(1, rows));
+        var pty = _pty;
+        _ = Task.Run(() =>
+        {
+            var buf = new byte[8192];
+            string? error = null;
+            try
+            {
+                while (true)
+                {
+                    int n = pty.Stream.Read(buf, 0, buf.Length);
+                    if (n <= 0) break;
+                    DataReceived?.Invoke(buf.AsSpan(0, n).ToArray());
+                }
+            }
+            // Reading the master fails with EIO once the shell (and everything else holding the slave) has exited -
+            // that is the normal end of a session on Linux, not an error.
+            catch (IOException) { }
+            catch (Exception ex) when (Volatile.Read(ref _closing) == 0) { error = ex.Message; }
+            catch { }
+            if (Volatile.Read(ref _closing) == 0) _ = Task.Run(pty.WaitForExit); // reap the zombie
+            RaiseClosed(error);
+        });
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Splits a shell-style argument string ("-l -c 'echo hi'") into argv entries: whitespace separates,
+    /// single and double quotes group, backslash escapes the next character outside single quotes.</summary>
+    public static List<string> SplitArguments(string arguments)
+    {
+        var result = new List<string>();
+        var cur = new StringBuilder();
+        bool inArg = false;
+        char quote = '\0';
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            char c = arguments[i];
+            if (quote != '\0')
+            {
+                if (c == quote) quote = '\0';
+                else if (c == '\\' && quote == '"' && i + 1 < arguments.Length) cur.Append(arguments[++i]);
+                else cur.Append(c);
+            }
+            else if (c is '"' or '\'') { quote = c; inArg = true; }
+            else if (c == '\\' && i + 1 < arguments.Length) { cur.Append(arguments[++i]); inArg = true; }
+            else if (char.IsWhiteSpace(c))
+            {
+                if (inArg) { result.Add(cur.ToString()); cur.Clear(); inArg = false; }
+            }
+            else { cur.Append(c); inArg = true; }
+        }
+        if (inArg) result.Add(cur.ToString());
+        return result;
+    }
 
     /// <summary>Quotes the executable (paths like "C:\Program Files\Git\bin\bash.exe" would otherwise be split at the
     /// first space by CreateProcess) and appends the arguments untouched.</summary>
@@ -152,13 +226,24 @@ public sealed class LocalTransport : ITerminalTransport
 
     public void Write(ReadOnlySpan<byte> data)
     {
-        if (_inputPipe is null || data.IsEmpty) return;
+        if (data.IsEmpty) return;
+        if (_pty is { } pty)
+        {
+            try { pty.Stream.Write(data); pty.Stream.Flush(); } catch { }
+            return;
+        }
+        if (_inputPipe is null) return;
         var copy = data.ToArray();
         try { _inputPipe.Write(copy, 0, copy.Length); _inputPipe.Flush(); } catch { }
     }
 
     public void Resize(int cols, int rows)
     {
+        if (_pty is { } pty)
+        {
+            try { pty.Resize(Math.Max(1, cols), Math.Max(1, rows)); } catch { }
+            return;
+        }
         if (_pseudoConsole == IntPtr.Zero) return;
         var size = new ConPty.COORD { X = (short)Math.Max(1, cols), Y = (short)Math.Max(1, rows) };
         try { ConPty.ResizePseudoConsole(_pseudoConsole, size); } catch { }
@@ -176,6 +261,13 @@ public sealed class LocalTransport : ITerminalTransport
     /// Closed) and ConnectAsync's own failure path (which must not - see the comment there).</summary>
     private void ReleaseNativeResources()
     {
+        if (_pty is { } pty && !OperatingSystem.IsWindows())
+        {
+            _pty = null;
+            try { pty.Kill(); } catch { }
+            try { pty.Dispose(); } catch { }
+            return;
+        }
         if (_processHandle != IntPtr.Zero) { try { ConPty.TerminateProcess(_processHandle, 0); } catch { } }
         if (_pseudoConsole != IntPtr.Zero) { ConPty.ClosePseudoConsole(_pseudoConsole); _pseudoConsole = IntPtr.Zero; }
         if (_attributeList != IntPtr.Zero) { ConPty.DeleteProcThreadAttributeList(_attributeList); Marshal.FreeHGlobal(_attributeList); _attributeList = IntPtr.Zero; }

@@ -3,7 +3,7 @@ using System.Text;
 
 namespace OmlTerminal.Core.Shells;
 
-public enum ShellKind { PowerShell, Pwsh, Cmd, Wsl, GitBash, Cygwin, Msys2, Custom }
+public enum ShellKind { PowerShell, Pwsh, Cmd, Wsl, GitBash, Cygwin, Msys2, Custom, Bash, Zsh, Fish, Sh }
 
 /// <summary>One launchable local shell: the executable, its arguments, and any environment it needs.</summary>
 public sealed record ShellInfo(string Name, ShellKind Kind, string Path, string Arguments = "",
@@ -24,6 +24,12 @@ public static class ShellCatalog
 
     public static IReadOnlyList<ShellInfo> Detect()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            string etcShells = "";
+            try { if (File.Exists("/etc/shells")) etcShells = File.ReadAllText("/etc/shells"); } catch { }
+            return DetectUnix(etcShells, Environment.GetEnvironmentVariable("SHELL"), File.Exists);
+        }
         var list = new List<ShellInfo>();
         string sys = Environment.GetFolderPath(Environment.SpecialFolder.System);
         string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
@@ -46,6 +52,43 @@ public static class ShellCatalog
         AddIf("MSYS2 (UCRT64)", ShellKind.Msys2, @"C:\msys64\usr\bin\bash.exe", "--login -i",
             new Dictionary<string, string> { ["CHERE_INVOKING"] = "1", ["MSYSTEM"] = "UCRT64" });
 
+        return list;
+    }
+
+    /// <summary>Linux/macOS: the login shell first, then each distinct shell listed in /etc/shells (bash, zsh, fish,
+    /// pwsh...). /usr/bin/bash and /bin/bash are the same shell on merged-/usr systems, so names are de-duplicated.</summary>
+    public static IReadOnlyList<ShellInfo> DetectUnix(string etcShells, string? loginShell, Func<string, bool> exists)
+    {
+        var list = new List<ShellInfo>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        void Add(string path, bool login)
+        {
+            var name = System.IO.Path.GetFileName(path);
+            if (string.IsNullOrEmpty(name) || !exists(path) || !seen.Add(name)) return;
+            // Skip the non-interactive helpers some distros list (git-shell, rbash, nologin).
+            if (name is "git-shell" or "rbash" or "nologin" or "false" or "screen" or "tmux") return;
+            var (kind, display) = name switch
+            {
+                "bash" => (ShellKind.Bash, "Bash"),
+                "zsh" => (ShellKind.Zsh, "Zsh"),
+                "fish" => (ShellKind.Fish, "Fish"),
+                "pwsh" => (ShellKind.Pwsh, "PowerShell 7"),
+                "sh" or "dash" => (ShellKind.Sh, name == "sh" ? "sh" : "Dash"),
+                _ => (ShellKind.Custom, name),
+            };
+            // Login shells read the user's profile (PATH additions, prompt), as a desktop terminal does.
+            var args = kind switch { ShellKind.Bash or ShellKind.Zsh or ShellKind.Fish => "-l", ShellKind.Pwsh => "-NoLogo -Login", _ => "" };
+            list.Add(new ShellInfo(login ? $"{display} (login shell)" : display, kind, path, args));
+        }
+
+        if (!string.IsNullOrWhiteSpace(loginShell)) Add(loginShell.Trim(), login: true);
+        foreach (var raw in etcShells.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            Add(line, login: false);
+        }
+        if (list.Count == 0 && exists("/bin/sh")) list.Add(new ShellInfo("sh", ShellKind.Sh, "/bin/sh"));
         return list;
     }
 

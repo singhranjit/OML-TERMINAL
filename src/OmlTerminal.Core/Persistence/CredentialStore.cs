@@ -6,34 +6,79 @@ using OmlTerminal.Core.Models;
 namespace OmlTerminal.Core.Persistence;
 
 /// <summary>
-/// Encrypts a secret for the current Windows user with DPAPI, stored as "dpapi:v1:" + base64. Used when no master
-/// password is set, so vault passwords are never written to disk in plain text. Only this Windows account on this
-/// PC can decrypt them.
+/// Encrypts a secret for the current user when no master password is set, so vault passwords are never written to
+/// disk in plain text. Windows: DPAPI ("dpapi:v1:" + base64) - only this Windows account on this PC can decrypt.
+/// Linux/macOS: AES-256-GCM ("local:v1:" + base64 nonce|ciphertext|tag) with a random 256-bit key in
+/// &lt;data&gt;/.local-key, created readable by the owner only (mode 600, like an SSH private key).
 /// </summary>
 public static class LocalSecret
 {
-    public const string Prefix = "dpapi:v1:";
+    public const string DpapiPrefix = "dpapi:v1:";
+    public const string KeyFilePrefix = "local:v1:";
+    /// <summary>The prefix this platform writes.</summary>
+    public static string Prefix => OperatingSystem.IsWindows() ? DpapiPrefix : KeyFilePrefix;
     private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("oml-terminal-vault");
+    private static readonly object KeyLock = new();
+    private static byte[]? _key;
 
-    public static bool IsProtected(string? value) => value?.StartsWith(Prefix, StringComparison.Ordinal) == true;
+    public static bool IsProtected(string? value) =>
+        value?.StartsWith(DpapiPrefix, StringComparison.Ordinal) == true || value?.StartsWith(KeyFilePrefix, StringComparison.Ordinal) == true;
 
     public static string Protect(string plaintext)
     {
         if (string.IsNullOrEmpty(plaintext) || IsProtected(plaintext) || SecretProtector.IsProtected(plaintext)) return plaintext;
-        if (!OperatingSystem.IsWindows()) return plaintext;
-        return Prefix + Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(plaintext), Entropy, DataProtectionScope.CurrentUser));
+        if (OperatingSystem.IsWindows())
+            return DpapiPrefix + Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(plaintext), Entropy, DataProtectionScope.CurrentUser));
+        var key = Key();
+        var plain = Encoding.UTF8.GetBytes(plaintext);
+        var blob = new byte[12 + plain.Length + 16];
+        RandomNumberGenerator.Fill(blob.AsSpan(0, 12));
+        using (var gcm = new AesGcm(key, 16))
+            gcm.Encrypt(blob.AsSpan(0, 12), plain, blob.AsSpan(12, plain.Length), blob.AsSpan(12 + plain.Length), Entropy);
+        return KeyFilePrefix + Convert.ToBase64String(blob);
     }
 
-    /// <summary>Returns null if the value can't be decrypted (another user or PC).</summary>
+    /// <summary>Returns null if the value can't be decrypted (another user, PC, or a lost key file).</summary>
     public static string? Unprotect(string value)
     {
         if (!IsProtected(value)) return value;
-        if (!OperatingSystem.IsWindows()) return null;
         try
         {
-            return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value[Prefix.Length..]), Entropy, DataProtectionScope.CurrentUser));
+            if (value.StartsWith(DpapiPrefix, StringComparison.Ordinal))
+            {
+                if (!OperatingSystem.IsWindows()) return null;
+                return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value[DpapiPrefix.Length..]), Entropy, DataProtectionScope.CurrentUser));
+            }
+            var blob = Convert.FromBase64String(value[KeyFilePrefix.Length..]);
+            if (blob.Length < 28) return null;
+            var plain = new byte[blob.Length - 28];
+            using var gcm = new AesGcm(Key(), 16);
+            gcm.Decrypt(blob.AsSpan(0, 12), blob.AsSpan(12, plain.Length), blob.AsSpan(12 + plain.Length), plain, Entropy);
+            return Encoding.UTF8.GetString(plain);
         }
-        catch (Exception e) when (e is CryptographicException or FormatException) { return null; }
+        catch (Exception e) when (e is CryptographicException or FormatException or IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>The per-user key (Linux/macOS), created on first use with owner-only permissions.</summary>
+    private static byte[] Key()
+    {
+        lock (KeyLock)
+        {
+            if (_key is not null) return _key;
+            var path = Path.Combine(AppPaths.DataDirectory, ".local-key");
+            if (File.Exists(path))
+            {
+                var existing = File.ReadAllBytes(path);
+                if (existing.Length == 32) return _key = existing;
+                UnreadableFile.Keep(path); // wrong size: keep it, make a new one (old secrets become unreadable)
+            }
+            Directory.CreateDirectory(AppPaths.DataDirectory);
+            var key = RandomNumberGenerator.GetBytes(32);
+            var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write };
+            if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            using (var f = new FileStream(path, options)) f.Write(key);
+            return _key = key;
+        }
     }
 }
 

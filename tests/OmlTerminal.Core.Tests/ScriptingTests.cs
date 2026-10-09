@@ -20,10 +20,26 @@ public class ScriptCatalogTests
             Assert.Equal(2, scripts.Count);
             var hello = scripts.Single(s => s.Name == "hello");
             Assert.Equal("Says hello", hello.Description);
-            Assert.Equal("powershell.exe", hello.Interpreter);
+            Assert.Equal(OperatingSystem.IsWindows() ? "powershell.exe" : "pwsh", hello.Interpreter);
             var plain = scripts.Single(s => s.Name == "plain");
             Assert.Equal("", plain.Description);
-            Assert.Equal("python", plain.Interpreter);
+            Assert.Equal(OperatingSystem.IsWindows() ? "python" : "python3", plain.Interpreter);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void Windows_batch_files_are_only_offered_on_windows()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "oml-script-bat-" + Guid.NewGuid());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "run.cmd"), "@echo hi\r\n");
+            File.WriteAllText(Path.Combine(dir, "run.sh"), "echo hi\n");
+            var names = ScriptCatalog.Scan(dir).Select(s => Path.GetExtension(s.Path)).ToList();
+            Assert.Contains(".sh", names);
+            Assert.Equal(OperatingSystem.IsWindows(), names.Contains(".cmd"));
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -38,6 +54,22 @@ public class ScriptCatalogTests
 
 public class ScriptRunnerTests
 {
+    /// <summary>A script for this OS: cmd/PowerShell on Windows, bash elsewhere.</summary>
+    private static ScriptDefinition Script(string dir, string name, string windowsExt, string windowsBody, string unixBody)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var path = Path.Combine(dir, name + windowsExt);
+            File.WriteAllText(path, windowsBody);
+            return windowsExt == ".cmd"
+                ? new ScriptDefinition(path, name, "", "cmd.exe", ["/c"])
+                : new ScriptDefinition(path, name, "", "powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]);
+        }
+        var sh = Path.Combine(dir, name + ".sh");
+        File.WriteAllText(sh, unixBody);
+        return new ScriptDefinition(sh, name, "", "/bin/bash", []);
+    }
+
     [Fact]
     public async Task RunPassesSessionContextAsEnvironmentVariablesAndCapturesOutput()
     {
@@ -45,9 +77,9 @@ public class ScriptRunnerTests
         Directory.CreateDirectory(dir);
         try
         {
-            var scriptPath = Path.Combine(dir, "echo-context.cmd");
-            File.WriteAllText(scriptPath, "@echo off\r\necho HOST=%OML_SESSION_HOST%\r\necho NAME=%OML_SESSION_NAME%\r\n");
-            var script = new ScriptDefinition(scriptPath, "echo-context", "", "cmd.exe", ["/c"]);
+            var script = Script(dir, "echo-context", ".cmd",
+                "@echo off\r\necho HOST=%OML_SESSION_HOST%\r\necho NAME=%OML_SESSION_NAME%\r\n",
+                "echo HOST=$OML_SESSION_HOST\necho NAME=$OML_SESSION_NAME\n");
             var runner = new ScriptRunner();
             var lines = new List<string>();
             runner.LineReceived += lines.Add;
@@ -68,9 +100,7 @@ public class ScriptRunnerTests
         Directory.CreateDirectory(dir);
         try
         {
-            var scriptPath = Path.Combine(dir, "reverse.ps1");
-            File.WriteAllText(scriptPath, "$input | ForEach-Object { $_ }\n");
-            var script = new ScriptDefinition(scriptPath, "reverse", "", "powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]);
+            var script = Script(dir, "reverse", ".ps1", "$input | ForEach-Object { $_ }\n", "cat\n");
             var runner = new ScriptRunner();
             var lines = new List<string>();
             runner.LineReceived += lines.Add;
@@ -89,9 +119,7 @@ public class ScriptRunnerTests
         Directory.CreateDirectory(dir);
         try
         {
-            var scriptPath = Path.Combine(dir, "sleep.ps1");
-            File.WriteAllText(scriptPath, "Start-Sleep -Seconds 30\n");
-            var script = new ScriptDefinition(scriptPath, "sleep", "", "powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]);
+            var script = Script(dir, "sleep", ".ps1", "Start-Sleep -Seconds 30\n", "sleep 30\n");
             var runner = new ScriptRunner();
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 
