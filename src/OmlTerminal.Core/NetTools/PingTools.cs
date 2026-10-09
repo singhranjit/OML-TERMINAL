@@ -15,6 +15,12 @@ public static class PingTools
 {
     public static async Task<PingReplyInfo> PingOnceAsync(IPAddress target, int timeoutMs = 1000, int size = 32, int ttl = 128, bool dontFragment = false)
     {
+        if (!OperatingSystem.IsWindows() && target.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            // .NET's Ping needs root on most Linux setups; UnixIcmp picks whatever this process is allowed to use.
+            var r = await UnixIcmp.SendAsync(target, ttl, timeoutMs, size).ConfigureAwait(false);
+            return new PingReplyInfo(r.From, r.Status, (long)Math.Round(r.RttMs), r.Ttl);
+        }
         using var ping = new Ping();
         try
         {
@@ -67,6 +73,18 @@ public static class PingTools
             bool reached = false;
             for (int probe = 0; probe < 3; probe++)
             {
+                if (!OperatingSystem.IsWindows() && target.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    var u = await UnixIcmp.SendAsync(target, ttl, timeoutMs, 32, ct).ConfigureAwait(false);
+                    if (u.Status is IPStatus.TtlExpired or IPStatus.Success)
+                    {
+                        hopAddress ??= u.From;
+                        rtts.Add((long)Math.Round(u.RttMs));
+                        reached |= u.Status == IPStatus.Success;
+                    }
+                    else rtts.Add(null);
+                    continue;
+                }
                 using var ping = new Ping();
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 try

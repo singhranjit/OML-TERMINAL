@@ -27,8 +27,12 @@ public sealed class IcmpProbeSender : IProbeSender
 {
     public async Task<ProbeResult> SendAsync(IPAddress target, int ttl, int timeoutMs, int size, CancellationToken ct)
     {
-        if (OperatingSystem.IsWindows() && target.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-            return await NativeIcmp.SendAsync(target, ttl, timeoutMs, size).ConfigureAwait(false);
+        if (target.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            if (OperatingSystem.IsWindows()) return await NativeIcmp.SendAsync(target, ttl, timeoutMs, size).ConfigureAwait(false);
+            var r = await NetTools.UnixIcmp.SendAsync(target, ttl, timeoutMs, size, ct).ConfigureAwait(false);
+            return new ProbeResult(r.From, r.Status, r.RttMs);
+        }
         using var ping = new Ping();
         var sw = Stopwatch.StartNew();
         try
