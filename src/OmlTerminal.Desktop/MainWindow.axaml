@@ -1,0 +1,93 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="OmlTerminal.Desktop.MainWindow"
+        Title="OML Terminal"
+        Icon="/Assets/AppIcon.ico"
+        Width="1280" Height="800" MinWidth="640" MinHeight="400"
+        Background="{StaticResource OmlSurface}">
+  <DockPanel>
+    <Menu DockPanel.Dock="Top" Background="{StaticResource OmlSidebar}">
+      <MenuItem Header="_File">
+        <MenuItem Header="_New Session..." InputGesture="Ctrl+N" Click="NewSession_Click" />
+        <MenuItem Header="New _Local Shell" InputGesture="Ctrl+Shift+T" Click="LocalShell_Click" />
+        <MenuItem x:Name="ShellsMenu" Header="Open _Shell" />
+        <Separator />
+        <MenuItem Header="Import PuTTY Sessions..." Click="ImportPutty_Click" />
+        <Separator />
+        <MenuItem Header="_Close Tab" InputGesture="Ctrl+W" Click="CloseTab_Click" />
+        <MenuItem Header="_Quit" InputGesture="Ctrl+Shift+Q" Click="Quit_Click" />
+      </MenuItem>
+      <MenuItem Header="_Edit">
+        <MenuItem Header="_Copy" InputGesture="Ctrl+Shift+C" Click="Copy_Click" />
+        <MenuItem Header="_Paste" InputGesture="Ctrl+Shift+V" Click="Paste_Click" />
+        <Separator />
+        <MenuItem Header="_Find..." InputGesture="Ctrl+Shift+F" Click="Find_Click" />
+      </MenuItem>
+      <MenuItem Header="_View">
+        <MenuItem Header="Zoom _In" InputGesture="Ctrl+OemPlus" Click="ZoomIn_Click" />
+        <MenuItem Header="Zoom _Out" InputGesture="Ctrl+OemMinus" Click="ZoomOut_Click" />
+        <MenuItem Header="_Reset Zoom" InputGesture="Ctrl+D0" Click="ZoomReset_Click" />
+        <Separator />
+        <MenuItem Header="Toggle _Sidebar" InputGesture="Ctrl+Shift+B" Click="ToggleSidebar_Click" />
+      </MenuItem>
+      <MenuItem Header="_Help">
+        <MenuItem Header="_User Guide" Click="Guide_Click" />
+        <MenuItem Header="_Downloads and Updates" Click="Downloads_Click" />
+        <Separator />
+        <MenuItem Header="_About OML Terminal" Click="About_Click" />
+      </MenuItem>
+    </Menu>
+
+    <Border DockPanel.Dock="Bottom" Background="{StaticResource OmlSidebar}" BorderBrush="{StaticResource OmlBorder}" BorderThickness="0,1,0,0" Padding="10,3">
+      <DockPanel>
+        <TextBlock x:Name="StatusSize" DockPanel.Dock="Right" Classes="muted" FontSize="12" />
+        <TextBlock x:Name="StatusText" Classes="muted" FontSize="12" Text="Ready" />
+      </DockPanel>
+    </Border>
+
+    <Grid x:Name="Body" ColumnDefinitions="260,4,*">
+      <!-- Sidebar -->
+      <Border x:Name="Sidebar" Background="{StaticResource OmlSidebar}" BorderBrush="{StaticResource OmlBorder}" BorderThickness="0,0,1,0">
+        <DockPanel Margin="10,10,6,10">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="+" ToolTip.Tip="New session (Ctrl+N)" Padding="10,2" Click="NewSession_Click" />
+            <TextBlock Text="SESSIONS" Classes="section" VerticalAlignment="Center" />
+          </DockPanel>
+          <TextBox x:Name="SearchBox" DockPanel.Dock="Top" PlaceholderText="Search name, host, folder, tag" Margin="0,0,0,8" />
+          <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Local Shell" Click="LocalShell_Click" />
+          </StackPanel>
+          <TreeView x:Name="SessionTree" />
+        </DockPanel>
+      </Border>
+      <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+      <!-- Tabs, or the start panel when none are open -->
+      <Grid Grid.Column="2">
+        <TabControl x:Name="Tabs" Padding="0" />
+        <Border x:Name="FindBar" IsVisible="False" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,52,18,0"
+                Background="{StaticResource OmlSidebar}" BorderBrush="{StaticResource OmlBorder}" BorderThickness="1" CornerRadius="6" Padding="8" ZIndex="10">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBox x:Name="FindBox" Width="220" PlaceholderText="Find in scrollback" />
+            <CheckBox x:Name="FindCase" Content="Aa" ToolTip.Tip="Match case" />
+            <Button Content="↑" ToolTip.Tip="Previous (Shift+Enter)" Click="FindPrev_Click" />
+            <Button Content="↓" ToolTip.Tip="Next (Enter)" Click="FindNext_Click" />
+            <TextBlock x:Name="FindCount" Classes="muted" VerticalAlignment="Center" MinWidth="56" />
+            <Button Content="✕" ToolTip.Tip="Close (Esc)" Click="FindClose_Click" />
+          </StackPanel>
+        </Border>
+        <StackPanel x:Name="StartPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+          <Image Source="/Assets/Logo.png" Width="96" Height="96" />
+          <TextBlock Text="OML Terminal" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Text="SSH, Telnet, serial and local shells for network engineers." Classes="muted" HorizontalAlignment="Center" />
+          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,6,0,0">
+            <Button Classes="accent" Content="New Session" Click="NewSession_Click" />
+            <Button Content="Local Shell" Click="LocalShell_Click" />
+          </StackPanel>
+          <TextBlock Classes="muted" FontSize="12" HorizontalAlignment="Center"
+                     Text="Double-click a saved session to connect · Ctrl+Shift+C / Ctrl+Shift+V copy and paste" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</Window>

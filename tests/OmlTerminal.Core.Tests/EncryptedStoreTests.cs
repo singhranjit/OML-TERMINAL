@@ -37,19 +37,50 @@ public class EncryptedStoreTests : IDisposable
         Assert.Equal("", loaded.Password);
     }
 
-    [Fact]
-    public void PlainFileIsMigratedToEncryptedOnNextSave()
+    /// <summary>A sessions.json from before secrets were always encrypted - written by hand, as no current code path writes plain text.</summary>
+    private void WriteLegacyPlainFile()
     {
-        new JsonSessionStore(File_).Save([P()]);
-        Assert.Contains("hunter2", File.ReadAllText(File_));
-
-        var store = new JsonSessionStore(File_, SecretProtector.FromPassword("m", _salt));
-        store.Save(store.Load());
-        Assert.DoesNotContain("hunter2", File.ReadAllText(File_));
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(File_, """[{"Name":"sw1","Host":"10.0.0.1","Port":22,"Username":"u","Password":"hunter2","JumpPassword":"jump-secret"}]""");
     }
 
     [Fact]
-    public void RemovingProtector_WritesPlainAgain()
+    public void PlainFileFromOlderVersionsLoads_AndIsEncryptedOnNextSave()
+    {
+        WriteLegacyPlainFile();
+        var store = new JsonSessionStore(File_);
+        var loaded = store.Load();
+        Assert.Equal("hunter2", Assert.Single(loaded).Password);
+
+        store.Save(loaded);
+        var onDisk = File.ReadAllText(File_);
+        Assert.DoesNotContain("hunter2", onDisk);
+        Assert.DoesNotContain("jump-secret", onDisk);
+        Assert.Equal("jump-secret", Assert.Single(store.Load()).JumpPassword);
+    }
+
+    [Fact]
+    public void WithoutMasterPassword_SecretsAreStillEncryptedForThisUser()
+    {
+        var store = new JsonSessionStore(File_);
+        var profile = P();
+        profile.EnablePassword = "enable-secret";
+        profile.UseJumpHost = true;
+        profile.JumpHost = "10.0.0.254";
+        profile.JumpUsername = "j";
+        profile.JumpPassword = "jump-secret";
+        store.Save([profile]);
+
+        var onDisk = File.ReadAllText(File_);
+        foreach (var secret in new[] { "hunter2", "enable-secret", "jump-secret" }) Assert.DoesNotContain(secret, onDisk);
+        Assert.Contains(LocalSecret.Prefix, onDisk);
+        Assert.False(store.HasProtectedSecrets()); // machine-bound, so no master password prompt is needed
+        var loaded = Assert.Single(store.Load());
+        Assert.Equal(("hunter2", "enable-secret", "jump-secret"), (loaded.Password, loaded.EnablePassword, loaded.JumpPassword));
+    }
+
+    [Fact]
+    public void RemovingProtector_FallsBackToMachineEncryption_NotPlainText()
     {
         var store = new JsonSessionStore(File_, SecretProtector.FromPassword("m", _salt));
         store.Save([P()]);
@@ -58,7 +89,19 @@ public class EncryptedStoreTests : IDisposable
         store.Protector = null;
         store.Save(loaded);
         Assert.False(store.HasProtectedSecrets());
-        Assert.Contains("hunter2", File.ReadAllText(File_));
+        Assert.DoesNotContain("hunter2", File.ReadAllText(File_));
+        Assert.Equal("hunter2", Assert.Single(store.Load()).Password);
+    }
+
+    [Fact]
+    public void MachineEncryptedFileMovesToMasterPasswordEncryption()
+    {
+        new JsonSessionStore(File_).Save([P()]);
+        var store = new JsonSessionStore(File_, SecretProtector.FromPassword("m", _salt));
+        store.Save(store.Load());
+        Assert.True(store.HasProtectedSecrets());
+        Assert.DoesNotContain(LocalSecret.Prefix, File.ReadAllText(File_));
+        Assert.Equal("hunter2", Assert.Single(store.Load()).Password);
     }
 
     [Fact]

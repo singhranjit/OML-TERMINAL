@@ -7,7 +7,9 @@ public sealed class JsonSessionStore(string? path = null, SecretProtector? prote
 {
     public string Path { get; } = path ?? System.IO.Path.Combine(AppPaths.DataDirectory, "sessions.json");
 
-    /// <summary>When set, passwords are encrypted on save and decrypted on load. Plain values found on load are re-encrypted on the next save.</summary>
+    /// <summary>When set (a master password is in use), secrets are encrypted with it. Otherwise they're still never
+    /// written in plain text: LocalSecret encrypts them for this user on this machine (DPAPI on Windows, a key file on
+    /// Linux/macOS). Plain values from older versions load as-is and are encrypted on the next save.</summary>
     public SecretProtector? Protector { get; set; } = protector;
 
     /// <summary>True if the file contains encrypted passwords (so a master password is needed to read them).</summary>
@@ -18,7 +20,7 @@ public sealed class JsonSessionStore(string? path = null, SecretProtector? prote
         {
             var all = JsonSerializer.Deserialize<List<SessionProfile>>(File.ReadAllText(Path), JsonFile.Options);
             return all?.Any(s => SecretProtector.IsProtected(s?.Password) || SecretProtector.IsProtected(s?.PrivateKeyPassphrase)
-                                 || SecretProtector.IsProtected(s?.EnablePassword)) == true;
+                                 || SecretProtector.IsProtected(s?.EnablePassword) || SecretProtector.IsProtected(s?.JumpPassword)) == true;
         }
         catch (JsonException) { return false; }
     }
@@ -35,12 +37,10 @@ public sealed class JsonSessionStore(string? path = null, SecretProtector? prote
             if (all is not null && valid.Count != all.Count) UnreadableFile.Keep(Path);
             foreach (var s in valid)
             {
-                if (SecretProtector.IsProtected(s.Password))
-                    s.Password = Protector?.Unprotect(s.Password) ?? "";
-                if (SecretProtector.IsProtected(s.PrivateKeyPassphrase))
-                    s.PrivateKeyPassphrase = Protector?.Unprotect(s.PrivateKeyPassphrase) ?? "";
-                if (SecretProtector.IsProtected(s.EnablePassword))
-                    s.EnablePassword = Protector?.Unprotect(s.EnablePassword) ?? "";
+                s.Password = Reveal(s.Password);
+                s.PrivateKeyPassphrase = Reveal(s.PrivateKeyPassphrase);
+                s.EnablePassword = Reveal(s.EnablePassword);
+                s.JumpPassword = Reveal(s.JumpPassword);
             }
             return valid;
         }
@@ -63,14 +63,23 @@ public sealed class JsonSessionStore(string? path = null, SecretProtector? prote
         var toWrite = list.Select(s =>
         {
             var copy = s.Clone();
-            if (Protector is not null)
-            {
-                copy.Password = Protector.Protect(copy.Password);
-                copy.PrivateKeyPassphrase = Protector.Protect(copy.PrivateKeyPassphrase);
-                copy.EnablePassword = Protector.Protect(copy.EnablePassword);
-            }
+            copy.Password = Hide(copy.Password);
+            copy.PrivateKeyPassphrase = Hide(copy.PrivateKeyPassphrase);
+            copy.EnablePassword = Hide(copy.EnablePassword);
+            copy.JumpPassword = Hide(copy.JumpPassword);
             return copy;
         }).ToList();
         JsonFile.WriteAtomic(Path, toWrite);
+    }
+
+    private string Hide(string value) =>
+        string.IsNullOrEmpty(value) ? value : Protector is not null ? Protector.Protect(value) : LocalSecret.Protect(value);
+
+    /// <summary>A secret that can't be decrypted (wrong master password, another user or machine) loads as empty.</summary>
+    private string Reveal(string value)
+    {
+        if (SecretProtector.IsProtected(value)) return Protector?.Unprotect(value) ?? "";
+        if (LocalSecret.IsProtected(value)) return LocalSecret.Unprotect(value) ?? "";
+        return value;
     }
 }

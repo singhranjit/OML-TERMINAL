@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- OML Terminal for Linux and macOS (Avalonia). Shares OmlTerminal.Core with the Windows (WinUI) app; the
+       session/settings view model is compiled in from the Windows app so both apps load and save identically. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>OmlTerminal.Desktop</RootNamespace>
+    <AssemblyName>oml-terminal</AssemblyName>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>..\OmlTerminal.App\Assets\AppIcon.ico</ApplicationIcon>
+    <Version>0.3.8</Version>
+    <Product>OML Terminal</Product>
+    <Company>OML Labs</Company>
+    <Copyright>OML Labs</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OmlTerminal.Core\OmlTerminal.Core.csproj" />
+    <Compile Include="..\OmlTerminal.App\ViewModels\MainViewModel.cs" Link="Shared\MainViewModel.cs" />
+    <Compile Include="..\OmlTerminal.App\ViewModels\TerminalTabViewModel.cs" Link="Shared\TerminalTabViewModel.cs" />
+    <AvaloniaResource Include="..\OmlTerminal.App\Assets\Logo.png" Link="Assets\Logo.png" />
+    <AvaloniaResource Include="..\OmlTerminal.App\Assets\AppIcon.ico" Link="Assets\AppIcon.ico" />
+  </ItemGroup>
+</Project>

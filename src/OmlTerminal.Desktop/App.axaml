@@ -1,0 +1,27 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="OmlTerminal.Desktop.App"
+             RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <SolidColorBrush x:Key="OmlAccent" Color="#38BDF8" />
+    <SolidColorBrush x:Key="OmlSidebar" Color="#111418" />
+    <SolidColorBrush x:Key="OmlSurface" Color="#0C0C0C" />
+    <SolidColorBrush x:Key="OmlBorder" Color="#262B33" />
+    <SolidColorBrush x:Key="OmlMuted" Color="#8B949E" />
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#38BDF8" RegionColor="#15181D" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource OmlMuted}" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="Foreground" Value="{StaticResource OmlMuted}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Application.Styles>
+</Application>

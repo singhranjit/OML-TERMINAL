@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="OmlTerminal.Desktop.SessionWindow"
+        Title="New Session"
+        Width="520" SizeToContent="Height" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="20">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,18,0,0">
+      <Button Content="Cancel" IsCancel="True" MinWidth="90" HorizontalContentAlignment="Center" Click="Cancel_Click" />
+      <Button x:Name="SaveButton" Content="Save" IsDefault="True" Classes="accent" MinWidth="90" HorizontalContentAlignment="Center" Click="Save_Click" />
+    </StackPanel>
+    <TextBlock x:Name="ErrorText" DockPanel.Dock="Bottom" Foreground="#F87171" TextWrapping="Wrap" Margin="0,12,0,0" IsVisible="False" />
+
+    <StackPanel Spacing="10">
+      <Grid ColumnDefinitions="*,12,*">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Name" Classes="section" />
+          <TextBox x:Name="NameBox" PlaceholderText="core-sw-01" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="4">
+          <TextBlock Text="Folder" Classes="section" />
+          <AutoCompleteBox x:Name="FolderBox" PlaceholderText="Site A/Core (optional)" FilterMode="ContainsOrdinal" />
+        </StackPanel>
+      </Grid>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Type" Classes="section" />
+        <ComboBox x:Name="ProtocolBox" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="SSH" />
+          <ComboBoxItem Content="Telnet" />
+          <ComboBoxItem Content="Serial console" />
+          <ComboBoxItem Content="Local shell" />
+        </ComboBox>
+      </StackPanel>
+
+      <!-- SSH / Telnet -->
+      <StackPanel x:Name="NetworkPanel" Spacing="10">
+        <Grid ColumnDefinitions="*,12,100">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Host" Classes="section" />
+            <TextBox x:Name="HostBox" PlaceholderText="10.0.0.1 or router.example.net" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="4">
+            <TextBlock Text="Port" Classes="section" />
+            <NumericUpDown x:Name="PortBox" Minimum="1" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,12,*">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Username" Classes="section" />
+            <TextBox x:Name="UserBox" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="4" x:Name="PasswordPanel">
+            <TextBlock Text="Password" Classes="section" />
+            <TextBox x:Name="PasswordBox" PasswordChar="•" RevealPassword="False" PlaceholderText="optional" />
+          </StackPanel>
+        </Grid>
+        <StackPanel x:Name="SshPanel" Spacing="10">
+          <CheckBox x:Name="UseKeyBox" Content="Log in with a private key (OpenSSH format)" />
+          <DockPanel x:Name="KeyPanel" IsVisible="False">
+            <Button DockPanel.Dock="Right" Content="Browse..." Margin="8,0,0,0" Click="BrowseKey_Click" />
+            <TextBox x:Name="KeyBox" PlaceholderText="~/.ssh/id_ed25519" />
+          </DockPanel>
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Text="Enable password (Cisco, optional)" Classes="section" />
+          <TextBox x:Name="EnableBox" PasswordChar="•" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Serial -->
+      <Grid x:Name="SerialPanel" ColumnDefinitions="*,12,140" IsVisible="False">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Serial port" Classes="section" />
+          <AutoCompleteBox x:Name="SerialBox" PlaceholderText="/dev/ttyUSB0" FilterMode="ContainsOrdinal" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="4">
+          <TextBlock Text="Baud rate" Classes="section" />
+          <ComboBox x:Name="BaudBox" HorizontalAlignment="Stretch" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Local shell -->
+      <StackPanel x:Name="LocalPanel" Spacing="4" IsVisible="False">
+        <TextBlock Text="Shell" Classes="section" />
+        <ComboBox x:Name="ShellBox" HorizontalAlignment="Stretch" />
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Commands to run after login (one per line, optional)" Classes="section" />
+        <TextBox x:Name="StartupBox" AcceptsReturn="True" Height="70" />
+      </StackPanel>
+    </StackPanel>
+  </DockPanel>
+</Window>

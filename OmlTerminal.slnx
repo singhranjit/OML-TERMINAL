@@ -4,6 +4,7 @@
       <Platform Project="x64" />
     </Project>
     <Project Path="src/OmlTerminal.Core/OmlTerminal.Core.csproj" />
+    <Project Path="src/OmlTerminal.Desktop/OmlTerminal.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OmlTerminal.Core.Tests/OmlTerminal.Core.Tests.csproj" />

@@ -77,6 +77,14 @@ public class FtpServerTests
         return p;
     }
 
+    /// <summary>A small range starting at a free port. (Two separate FreePort() calls can come back in either order on
+    /// Linux, where ephemeral ports are randomized - Windows hands them out ascending.)</summary>
+    private static (int, int) PassiveRange()
+    {
+        int from = Math.Min(FreePort(), 65_000);
+        return (from, from + 20);
+    }
+
     [Fact]
     public async Task AnonymousRoundTrip_ListRetrStor()
     {
@@ -86,7 +94,7 @@ public class FtpServerTests
         {
             await File.WriteAllTextAsync(Path.Combine(root, "config.txt"), "hostname CORE-SW1");
             int port = FreePort();
-            using var server = new FtpServer(root, "127.0.0.1", port) { PassivePorts = (FreePort(), FreePort() + 20) };
+            using var server = new FtpServer(root, "127.0.0.1", port) { PassivePorts = PassiveRange() };
             server.Start();
 
             using var ftp = new MiniFtp("127.0.0.1", port);
@@ -101,6 +109,25 @@ public class FtpServerTests
     }
 
     [Fact]
+    public async Task PassiveRangeTypedBackwardsStillWorks()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "oml-ftp-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "a.txt"), "x");
+            int port = FreePort();
+            var (from, to) = PassiveRange();
+            using var server = new FtpServer(root, "127.0.0.1", port) { PassivePorts = (to, from) };
+            server.Start();
+            using var ftp = new MiniFtp("127.0.0.1", port);
+            await ftp.ConnectAsync();
+            Assert.Contains("a.txt", await ftp.List());
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task AuthenticatedServer_RejectsWrongPassword()
     {
         var root = Path.Combine(Path.GetTempPath(), "oml-ftp-" + Guid.NewGuid().ToString("N"));
@@ -108,7 +135,7 @@ public class FtpServerTests
         try
         {
             int port = FreePort();
-            using var server = new FtpServer(root, "127.0.0.1", port, "admin", "secret") { PassivePorts = (FreePort(), FreePort() + 20) };
+            using var server = new FtpServer(root, "127.0.0.1", port, "admin", "secret") { PassivePorts = PassiveRange() };
             server.Start();
             using var ftp = new MiniFtp("127.0.0.1", port);
             Assert.StartsWith("530", await ftp.ConnectAsync("admin", "wrong"));
@@ -124,7 +151,7 @@ public class FtpServerTests
         try
         {
             int port = FreePort();
-            using var server = new FtpServer(root, "127.0.0.1", port) { PassivePorts = (FreePort(), FreePort() + 20) };
+            using var server = new FtpServer(root, "127.0.0.1", port) { PassivePorts = PassiveRange() };
             server.Start();
             using var ftp = new MiniFtp("127.0.0.1", port);
             await ftp.ConnectAsync();

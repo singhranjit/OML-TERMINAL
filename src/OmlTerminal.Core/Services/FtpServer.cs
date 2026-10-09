@@ -192,6 +192,7 @@ internal sealed class FtpSession(FtpServer server, TcpClient control)
     {
         _pasv?.Stop();
         var (from, to) = server.PassivePorts;
+        if (from > to) (from, to) = (to, from); // a range typed backwards still means the same ports
         for (int port = from; port <= to; port++)
         {
             try
