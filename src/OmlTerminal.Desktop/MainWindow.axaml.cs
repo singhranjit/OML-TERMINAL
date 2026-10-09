@@ -55,6 +55,7 @@ public partial class MainWindow : Window
             if (_vm.IsLocked && !await UnlockAsync()) { Close(); return; }
             RefreshTree();
             Core.Snmp.TrafficGrapher.Shared.Start(); // MRTG polling runs while the app is open, tool tab or not
+            StartBackupScheduler();
         };
     }
 
@@ -331,7 +332,27 @@ public partial class MainWindow : Window
     {
         foreach (var tab in Tabs.Items.OfType<TabItem>().ToList()) CloseTab(tab);
         try { Core.Snmp.TrafficGrapher.Shared.Dispose(); } catch { }
+        _schedulerCts.Cancel();
         base.OnClosing(e);
+    }
+
+    // ---------- background jobs ----------
+
+    private readonly CancellationTokenSource _schedulerCts = new();
+
+    /// <summary>Scheduled config backups run once a minute while the app is open (same as the Windows app).</summary>
+    private void StartBackupScheduler()
+    {
+        var scheduler = new Core.Backup.BackupScheduler(_vm.Settings, _vm.SaveSettings, Context.SshSessions);
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        timer.Tick += async (_, _) =>
+        {
+            try { await scheduler.TickAsync(_schedulerCts.Token); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { App.Report(ex); }
+        };
+        timer.Start();
+        _schedulerCts.Token.Register(timer.Stop);
     }
 
     // ---------- tools ----------

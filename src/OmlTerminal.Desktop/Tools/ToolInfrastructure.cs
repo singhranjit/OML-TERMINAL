@@ -48,6 +48,8 @@ public static class ToolCatalog
         new("mrtg", "Traffic Graphs (MRTG)", "SNMP v1/v2c/v3 interface traffic - daily, weekly, monthly and yearly graphs with 95th percentile and alerts", "Network", c => new TrafficGraphTool(c)),
         new("dns", "DNS Lookup", "dig-style queries against any resolver", "Network", _ => new DnsTool()),
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "Network", _ => new SubnetTool()),
+        new("backup", "Config Backup", "Pull running configs over SSH, detect changes, diff", "Security", c => new ConfigBackupTool(c)),
+        new("scheduledbackups", "Scheduled Backups", "Recurring config backups with drift alerts, while the app is open", "Security", c => new ScheduledBackupsTool(c)),
     ];
 
     public static ToolDescriptor? Find(string id) => All.FirstOrDefault(t => t.Id == id);

@@ -16,6 +16,23 @@
       </FluentTheme.Palettes>
     </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <!-- Selection is a tint, not a solid accent fill: rows carry coloured status text that must stay readable. -->
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3338BDF8" />
+    </Style>
+    <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#4438BDF8" />
+    </Style>
+    <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#3338BDF8" />
+    </Style>
+    <Style Selector="TreeViewItem:selected:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#4438BDF8" />
+    </Style>
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#38BDF8" />
+      <Setter Property="Opacity" Value="0.22" />
+    </Style>
     <!-- Compact table headers: tool tables have many narrow numeric columns -->
     <Style Selector="DataGridColumnHeader">
       <Setter Property="Padding" Value="8,0,0,0" />
