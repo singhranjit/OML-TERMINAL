@@ -55,6 +55,9 @@ public partial class MainWindow : Window
             if (_vm.IsLocked && !await UnlockAsync()) { Close(); return; }
             RefreshTree();
             Core.Snmp.TrafficGrapher.Shared.Start(); // MRTG polling runs while the app is open, tool tab or not
+            // OML_OPEN_TOOL=pathtrace,mrtg opens tools at startup (demos, screenshots, scripted tests).
+            foreach (var id in (Environment.GetEnvironmentVariable("OML_OPEN_TOOL") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                OpenTool(id);
             if (_vm.Settings.RestoreWorkspaceOnLaunch)
                 foreach (var id in _vm.Settings.WorkspaceSessionIds.ToList())
                     if (_vm.Sessions.FirstOrDefault(x => x.Id == id) is { } saved) Connect(saved, remember: false);
