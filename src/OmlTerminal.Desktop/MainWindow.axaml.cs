@@ -55,6 +55,9 @@ public partial class MainWindow : Window
             if (_vm.IsLocked && !await UnlockAsync()) { Close(); return; }
             RefreshTree();
             Core.Snmp.TrafficGrapher.Shared.Start(); // MRTG polling runs while the app is open, tool tab or not
+            if (_vm.Settings.RestoreWorkspaceOnLaunch)
+                foreach (var id in _vm.Settings.WorkspaceSessionIds.ToList())
+                    if (_vm.Sessions.FirstOrDefault(x => x.Id == id) is { } saved) Connect(saved, remember: false);
             StartBackupScheduler();
         };
     }
@@ -246,6 +249,10 @@ public partial class MainWindow : Window
         if (_vm.Settings.AutoReconnect && p.Protocol is ProtocolKind.Ssh or ProtocolKind.Telnet)
             session.ReconnectTransportFactory = () => TransportFactory.Create(_vm.Resolve(saved));
         var tabVm = new TerminalTabViewModel(p, session);
+        if (_vm.Settings.AlwaysLogSessions)
+        {
+            try { tabVm.Logger = SessionLogger.Start(session, _vm.Settings.LogDirectory, p.Name); } catch { }
+        }
 
         var view = new TerminalView { TerminalFontSize = _fontSize };
         view.TerminalFontFamily = _vm.Settings.FontFamily;
@@ -297,6 +304,7 @@ public partial class MainWindow : Window
         }
         else { Status("Ready"); StatusSize.Text = ""; }
         if (FindBar.IsVisible) RunFind(keepPosition: false);
+        UpdateLogMenu();
     }
 
     private void CloseTab(TabItem tab)
@@ -330,6 +338,14 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        // Remember which saved sessions were open, in tab order, to reopen them next time.
+        if (!_vm.IsLocked)
+        {
+            _vm.Settings.WorkspaceSessionIds = Tabs.Items.OfType<TabItem>()
+                .Select(t => _tabs.TryGetValue(t, out var v) ? v.Vm.Profile.Id : (Guid?)null)
+                .Where(id => id is { } g && _vm.Sessions.Any(x => x.Id == g)).Select(id => id!.Value).Distinct().ToList();
+            try { _vm.SaveSettings(); } catch { }
+        }
         foreach (var tab in Tabs.Items.OfType<TabItem>().ToList()) CloseTab(tab);
         try { Core.Snmp.TrafficGrapher.Shared.Dispose(); } catch { }
         _schedulerCts.Cancel();
@@ -450,6 +466,54 @@ public partial class MainWindow : Window
         UpdateStartPanel();
     }
 
+    // ---------- settings / logging ----------
+
+    private async void Settings_Click(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new SettingsWindow(_vm.Settings);
+        if (!await dialog.ShowDialog<bool>(this)) return;
+        try
+        {
+            if (dialog.RemoveMasterPassword) _vm.RemoveMasterPassword();
+            else if (dialog.NewMasterPassword is { } pw) _vm.SetMasterPassword(pw);
+            _vm.SaveSettings();
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Could not save settings", ex.Message); return; }
+        _fontSize = _vm.Settings.FontSize;
+        foreach (var (vm, view) in _tabs.Values)
+        {
+            view.TerminalFontFamily = _vm.Settings.FontFamily;
+            view.TerminalFontSize = _fontSize;
+            vm.Session.Engine.Highlights = _vm.Settings.HighlightKeywords ? HighlightRuleSet.Default : null;
+        }
+        Status("Settings saved.");
+    }
+
+    private async void Log_Click(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentTab() is not { } tab || !tab.Vm.Session.IsConnected)
+        {
+            await Dialogs.MessageAsync(this, "Log to file", "Select a connected session tab first.");
+            return;
+        }
+        if (tab.Vm.Logger is null)
+        {
+            try { tab.Vm.Logger = SessionLogger.Start(tab.Vm.Session, _vm.Settings.LogDirectory, tab.Vm.Profile.Name); }
+            catch (Exception ex) { await Dialogs.MessageAsync(this, "Could not start logging", ex.Message); return; }
+            Status($"Logging to {tab.Vm.Logger.Path}");
+        }
+        else
+        {
+            var path = tab.Vm.Logger.Path;
+            tab.Vm.Logger.Dispose();
+            tab.Vm.Logger = null;
+            await Dialogs.MessageAsync(this, "Logging stopped", $"Transcript saved to:\n{path}");
+        }
+        UpdateLogMenu();
+    }
+
+    private void UpdateLogMenu() => LogMenu.Header = CurrentTab()?.Vm.Logger is null ? "_Log Session to File" : "Stop _Logging";
+
     // ---------- edit / view ----------
 
     private void Copy_Click(object? sender, RoutedEventArgs e) => _ = CurrentTab()?.View.CopySelectionAsync();
@@ -547,6 +611,7 @@ public partial class MainWindow : Window
             (true, Key.F) => () => Find_Click(null, e),
             (true, Key.B) => () => ToggleSidebar_Click(null, e),
             (true, Key.Q) => Close,
+            (false, Key.OemComma) => () => Settings_Click(null, e),
             (_, Key.OemPlus or Key.Add) => () => SetFont(_fontSize + 1),
             (false, Key.OemMinus or Key.Subtract) => () => SetFont(_fontSize - 1),
             (false, Key.D0 or Key.NumPad0) => () => SetFont(MainViewModel.DefaultFont),

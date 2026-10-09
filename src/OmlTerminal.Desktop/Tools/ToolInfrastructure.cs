@@ -52,6 +52,7 @@ public static class ToolCatalog
         new("subnet", "Subnet Calculator", "CIDR math, splitting, range → CIDR, summarise", "Network", _ => new SubnetTool()),
         new("backup", "Config Backup", "Pull running configs over SSH, detect changes, diff", "Security", c => new ConfigBackupTool(c)),
         new("scheduledbackups", "Scheduled Backups", "Recurring config backups with drift alerts, while the app is open", "Security", c => new ScheduledBackupsTool(c)),
+        new("vault", "Password Manager", "Saved logins & enable passwords, shared by sessions and backups", "Security", c => new PasswordManagerTool(c)),
         new("changeguard", "Change Guard", "Pre/post change checks: what went down, rerouted or disappeared, in plain English", "Security", c => new ChangeGuardTool(c)),
         new("search", "Global Search", "Find an IP, subnet, MAC or text across every backup, log, capture and session", "Reference", c => new GlobalSearchTool(c)),
         new("cliguide", "CLI Guide", "Searchable command reference for every supported vendor", "Reference", c => new CliGuideTool(c)),

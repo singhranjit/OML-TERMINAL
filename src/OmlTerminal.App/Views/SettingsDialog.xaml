@@ -43,7 +43,7 @@
             <TextBlock x:Name="MasterHint" Opacity="0.65" TextWrapping="Wrap" FontSize="12" />
             <PasswordBox x:Name="NewMasterBox" Header="New master password (min 6 characters)" />
             <PasswordBox x:Name="ConfirmMasterBox" Header="Confirm master password" />
-            <CheckBox x:Name="RemoveMasterBox" Content="Remove master password (store credentials unencrypted)" Visibility="Collapsed" />
+            <CheckBox x:Name="RemoveMasterBox" Content="Remove master password (passwords stay encrypted for your Windows account)" Visibility="Collapsed" />
             <InfoBar x:Name="ErrorBar" Severity="Error" IsOpen="False" IsClosable="False" />
         </StackPanel>
     </ScrollViewer>

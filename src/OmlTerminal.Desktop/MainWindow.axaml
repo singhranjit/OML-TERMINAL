@@ -13,7 +13,9 @@
         <MenuItem x:Name="ShellsMenu" Header="Open _Shell" />
         <MenuItem x:Name="ToolsMenu" Header="_Tools" />
         <Separator />
+        <MenuItem x:Name="LogMenu" Header="_Log Session to File" Click="Log_Click" />
         <MenuItem Header="Import PuTTY Sessions..." Click="ImportPutty_Click" />
+        <MenuItem Header="_Settings..." InputGesture="Ctrl+OemComma" Click="Settings_Click" />
         <Separator />
         <MenuItem Header="_Close Tab" InputGesture="Ctrl+W" Click="CloseTab_Click" />
         <MenuItem Header="_Quit" InputGesture="Ctrl+Shift+Q" Click="Quit_Click" />
