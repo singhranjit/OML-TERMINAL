@@ -26,6 +26,12 @@
         <Separator />
         <MenuItem Header="_Find..." InputGesture="Ctrl+Shift+F" Click="Find_Click" />
       </MenuItem>
+      <MenuItem Header="_Session">
+        <MenuItem Header="SFTP _Browser..." InputGesture="Ctrl+Shift+S" Click="Sftp_Click" />
+        <MenuItem Header="SSH _Tunnels..." Click="Tunnels_Click" />
+        <Separator />
+        <MenuItem Header="Save Scroll_back Snapshot..." Click="SaveScrollback_Click" />
+      </MenuItem>
       <MenuItem Header="_View">
         <MenuItem Header="Zoom _In" InputGesture="Ctrl+OemPlus" Click="ZoomIn_Click" />
         <MenuItem Header="Zoom _Out" InputGesture="Ctrl+OemMinus" Click="ZoomOut_Click" />

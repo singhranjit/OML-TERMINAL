@@ -144,7 +144,9 @@ public partial class MainWindow : Window
         duplicate.Click += (_, _) => Duplicate(p);
         var delete = new MenuItem { Header = "Delete" };
         delete.Click += async (_, _) => await DeleteSessionAsync(p);
-        item.ContextMenu = new ContextMenu { ItemsSource = new Control[] { connect, edit, duplicate, new Separator(), delete } };
+        var sftp = new MenuItem { Header = "Browse Files (SFTP)...", IsVisible = p.IsSshBased };
+        sftp.Click += (_, _) => OpenSftp(p);
+        item.ContextMenu = new ContextMenu { ItemsSource = new Control[] { connect, sftp, edit, duplicate, new Separator(), delete } };
         return item;
     }
 
@@ -329,6 +331,47 @@ public partial class MainWindow : Window
         try { t.Vm.Close(); } catch { }
         Tabs.Items.Remove(tab);
         UpdateStartPanel();
+    }
+
+    // ---------- sftp, tunnels, scrollback ----------
+
+    private async void Sftp_Click(object? sender, RoutedEventArgs e)
+    {
+        var profile = CurrentTab()?.Vm.Profile ?? (SessionTree.SelectedItem as TreeViewItem)?.Tag as SessionProfile;
+        if (profile is not { IsSshBased: true })
+        {
+            await Dialogs.MessageAsync(this, "SFTP Browser", "Select an SSH session tab first, or right-click a saved SSH session in the sidebar.");
+            return;
+        }
+        OpenSftp(profile);
+    }
+
+    private void OpenSftp(SessionProfile profile)
+    {
+        try { new SftpWindow(_vm.Resolve(profile), _vm.Settings, _vm.SaveSettings).Show(this); }
+        catch (Exception ex) { _ = Dialogs.MessageAsync(this, "SFTP Browser", ex.Message); }
+    }
+
+    private async void Tunnels_Click(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentTab() is not { } tab || tab.Vm.Session.Transport is not ISshTunnelHost host || !tab.Vm.Session.IsConnected)
+        {
+            await Dialogs.MessageAsync(this, "SSH Tunnels", "Select a connected SSH session tab first. Tunnels aren't available for Telnet, serial or local shells.");
+            return;
+        }
+        await new TunnelsWindow(host, tab.Vm.Profile.Name).ShowDialog(this);
+    }
+
+    private async void SaveScrollback_Click(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentTab() is not { } tab) { await Dialogs.MessageAsync(this, "Save scrollback", "Select a terminal tab first."); return; }
+        var name = string.Concat(tab.Vm.Profile.Name.Split(Path.GetInvalidFileNameChars()));
+        try
+        {
+            if (await ToolUi.SaveTextAsync($"{name}-{DateTime.Now:yyyyMMdd-HHmmss}", tab.Vm.Session.Engine.GetBufferText(), ".txt", "Text") is { } path)
+                Status($"Saved scrollback to {path}");
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't save scrollback", ex.Message); }
     }
 
     private void CloseTab_Click(object? sender, RoutedEventArgs e)
@@ -616,6 +659,7 @@ public partial class MainWindow : Window
             (true, Key.T) => () => LocalShell_Click(null, e),
             (true, Key.F) => () => Find_Click(null, e),
             (true, Key.B) => () => ToggleSidebar_Click(null, e),
+            (true, Key.S) => () => Sftp_Click(null, e),
             (true, Key.Q) => Close,
             (false, Key.OemComma) => () => Settings_Click(null, e),
             (_, Key.OemPlus or Key.Add) => () => SetFont(_fontSize + 1),

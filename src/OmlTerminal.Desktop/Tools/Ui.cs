@@ -3,7 +3,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using OmlTerminal.Desktop.Controls;
 
 namespace OmlTerminal.Desktop.Tools;
@@ -175,6 +177,13 @@ public static class Ui
             BorderThickness = new Thickness(1), BorderBrush = CardBorder, Background = CardBack,
         };
         foreach (var c in columns) g.Columns.Add(c);
+        // Right-click acts on the row under the pointer (keeping a multi-selection that already includes it).
+        g.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        {
+            if (!e.GetCurrentPoint(g).Properties.IsRightButtonPressed) return;
+            if ((e.Source as Control)?.FindAncestorOfType<DataGridRow>(includeSelf: true)?.DataContext is { } hit && !g.SelectedItems.Contains(hit))
+                g.SelectedItem = hit;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         return g;
     }
 
