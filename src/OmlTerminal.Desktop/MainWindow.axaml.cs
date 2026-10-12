@@ -62,6 +62,8 @@ public partial class MainWindow : Window
                 foreach (var id in _vm.Settings.WorkspaceSessionIds.ToList())
                     if (_vm.Sessions.FirstOrDefault(x => x.Id == id) is { } saved) Connect(saved, remember: false);
             StartBackupScheduler();
+            if (!_vm.Settings.WelcomeShown && Environment.GetEnvironmentVariable("OML_OPEN_TOOL") is null) await ShowWelcomeAsync();
+            await CheckForUpdatesAsync(manual: false);
         };
     }
 
@@ -801,6 +803,101 @@ public partial class MainWindow : Window
             "SSH, Telnet, serial and local shells for network engineers.\nFree for the community, by OML Labs.\n\n" +
             $".NET {Environment.Version} · {System.Runtime.InteropServices.RuntimeInformation.OSDescription}\n" +
             $"Data folder: {AppPaths.DataDirectory}");
+
+    private void WhatsNew_Click(object? sender, RoutedEventArgs e) => OpenUrl("https://github.com/singhranjit/OML-TERMINAL/blob/main/CHANGELOG.md");
+
+    // ---------- updates ----------
+
+    private ReleaseInfo? _available;
+
+    private async void CheckUpdates_Click(object? sender, RoutedEventArgs e) => await CheckForUpdatesAsync(manual: true);
+
+    /// <summary>Automatic checks only if the user opted in, at most once a day; Help > Check for Updates always asks.</summary>
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        var s = _vm.Settings;
+        if (!manual && (s.CheckForUpdates != true || !UpdateChecker.Due(s.LastUpdateCheckUtc, DateTime.UtcNow))) return;
+        ReleaseInfo? info = null;
+        try { info = await UpdateChecker.CheckAsync(AppVersion); } catch { }
+        s.LastUpdateCheckUtc = DateTime.UtcNow;
+        try { _vm.SaveSettings(); } catch { }
+        if (info is not null && (manual || info.Version != s.SkippedUpdateVersion))
+        {
+            _available = info;
+            UpdateText.Text = $"OML Terminal {info.Version} is available - you have {AppVersionText}. " + (info.Notes.Length > 0 ? info.Notes : $"Released {info.Date}.");
+            UpdateBar.IsVisible = true;
+        }
+        else if (manual)
+            await Dialogs.MessageAsync(this, "Check for Updates", $"You're up to date - OML Terminal {AppVersionText} is the latest release. (If omllabs.com couldn't be reached, try again later.)");
+    }
+
+    // The feed's direct link is the Windows installer; Linux and macOS builds are listed on the downloads page.
+    private void UpdateDownload_Click(object? sender, RoutedEventArgs e)
+    {
+        OpenUrl(OperatingSystem.IsWindows() && _available?.Url is { Length: > 0 } u ? u : UpdateChecker.DownloadsUrl);
+        UpdateBar.IsVisible = false;
+    }
+
+    private void UpdateSkip_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_available is not null) { _vm.Settings.SkippedUpdateVersion = _available.Version; try { _vm.SaveSettings(); } catch { } }
+        UpdateBar.IsVisible = false;
+    }
+
+    private void UpdateClose_Click(object? sender, RoutedEventArgs e) => UpdateBar.IsVisible = false;
+
+    // ---------- first run ----------
+
+    private async void Welcome_Click(object? sender, RoutedEventArgs e) => await ShowWelcomeAsync();
+
+    /// <summary>First launch: what the app is, where things are, the update opt-in, and import shortcuts when there are no sessions yet.</summary>
+    private async Task ShowWelcomeAsync()
+    {
+        var updates = new CheckBox
+        {
+            IsChecked = _vm.Settings.CheckForUpdates ?? true,
+            Content = new TextBlock { Text = "Tell me when a new version is out (checks omllabs.com once a day - nothing about you or your devices is sent)", TextWrapping = TextWrapping.Wrap },
+        };
+        var panel = new StackPanel { Spacing = 14, Width = 560 };
+        panel.Children.Add(new TextBlock { Text = "The network engineer's cockpit - free for the community, no account, no telemetry.", TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted });
+        panel.Children.Add(new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap, LineHeight = 22,
+            Text = "•  New Session (Ctrl+N) for SSH, Telnet, serial and local shells; double-click a saved session to connect.\n" +
+                   "•  The Tools tab in the sidebar holds the network toolkit - Visual Trace, Ping Monitor, MRTG graphs, Packet and Wi-Fi Analyzers, Topology, Change Guard, backups and more.\n" +
+                   "•  Session menu: SFTP browser (Ctrl+Shift+S), SSH tunnels and scrollback snapshots.\n" +
+                   "•  Saved logins live in the Password Manager, encrypted on this computer.",
+        });
+        panel.Children.Add(updates);
+        bool noSessions = _vm.Sessions.Count == 0;
+        if (noSessions) panel.Children.Add(new TextBlock { Text = "Coming from another terminal? Bring your saved sessions across:", TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted });
+
+        var w = new Window
+        {
+            Title = $"Welcome to OML Terminal {AppVersionText}", SizeToContent = SizeToContent.WidthAndHeight, CanResize = false,
+            ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+        string choice = "";
+        Button B(string text, string id, bool accent = false)
+        {
+            var b = new Button { Content = text, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+            if (accent) { b.Classes.Add("accent"); b.IsDefault = true; }
+            b.Click += (_, _) => { choice = id; w.Close(); };
+            return b;
+        }
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
+        if (noSessions) { buttons.Children.Add(B("Import from PuTTY", "putty")); buttons.Children.Add(B("Import from MobaXterm", "moba")); }
+        buttons.Children.Add(B("Start", "", accent: true));
+        panel.Children.Add(buttons);
+        w.Content = new Border { Padding = new Thickness(22), Child = panel };
+        await w.ShowDialog(this);
+
+        _vm.Settings.CheckForUpdates = updates.IsChecked == true;
+        _vm.Settings.WelcomeShown = true;
+        try { _vm.SaveSettings(); } catch { }
+        if (choice == "putty") ImportPutty_Click(this, new RoutedEventArgs());
+        else if (choice == "moba") ImportMobaXterm_Click(this, new RoutedEventArgs());
+    }
 
     private void OpenUrl(string url)
     {

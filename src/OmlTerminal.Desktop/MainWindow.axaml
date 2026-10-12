@@ -51,7 +51,10 @@
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_User Guide" Click="Guide_Click" />
-        <MenuItem Header="_Downloads and Updates" Click="Downloads_Click" />
+        <MenuItem Header="_What's New" Click="WhatsNew_Click" />
+        <MenuItem Header="_Check for Updates..." Click="CheckUpdates_Click" />
+        <MenuItem Header="_Downloads Page" Click="Downloads_Click" />
+        <MenuItem Header="Welcome _Tour" Click="Welcome_Click" />
         <Separator />
         <MenuItem Header="_About OML Terminal" Click="About_Click" />
       </MenuItem>
@@ -69,6 +72,14 @@
         <Button DockPanel.Dock="Right" Content="×" Padding="8,0" Background="Transparent" Click="ErrorClose_Click" />
         <Button DockPanel.Dock="Right" Content="Copy details" Padding="8,2" Margin="8,0" Click="ErrorCopy_Click" />
         <TextBlock x:Name="ErrorText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="#FECDD3" />
+      </DockPanel>
+    </Border>
+    <Border x:Name="UpdateBar" DockPanel.Dock="Top" IsVisible="False" Background="#14283A" BorderBrush="#38BDF8" BorderThickness="0,0,0,1" Padding="12,6">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="×" Padding="8,0" Background="Transparent" Click="UpdateClose_Click" />
+        <Button DockPanel.Dock="Right" Content="Skip this version" Padding="8,2" Margin="8,0,0,0" Click="UpdateSkip_Click" />
+        <Button DockPanel.Dock="Right" Classes="accent" Content="Download" Padding="8,2" Margin="8,0,0,0" Click="UpdateDownload_Click" />
+        <TextBlock x:Name="UpdateText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </DockPanel>
     </Border>
     <Grid x:Name="Body" ColumnDefinitions="260,4,*">
