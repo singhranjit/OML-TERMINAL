@@ -1219,7 +1219,7 @@ public partial class MainWindow : Window
 
     private async void About_Click(object? sender, RoutedEventArgs e) =>
         await Dialogs.MessageAsync(this, "About OML Terminal",
-            $"OML Terminal {AppVersionText} for {(OperatingSystem.IsMacOS() ? "macOS" : "Linux")} (preview)\n\n" +
+            $"OML Terminal {AppVersionText} for {(OperatingSystem.IsMacOS() ? "macOS" : "Linux")}\n\n" +
             "SSH, Telnet, serial and local shells for network engineers.\nFree for the community, by OML Labs.\n\n" +
             $".NET {Environment.Version} · {System.Runtime.InteropServices.RuntimeInformation.OSDescription}\n" +
             $"Data folder: {AppPaths.DataDirectory}");

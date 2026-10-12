@@ -10,7 +10,7 @@
     <AssemblyName>oml-terminal</AssemblyName>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>..\OmlTerminal.App\Assets\AppIcon.ico</ApplicationIcon>
-    <Version>0.3.8</Version>
+    <Version>1.0.0</Version>
     <Product>OML Terminal</Product>
     <Company>OML Labs</Company>
     <Copyright>OML Labs</Copyright>

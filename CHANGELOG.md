@@ -2,7 +2,7 @@
 
 All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://omllabs.com/downloads.html).
 
-## Unreleased
+## 1.0.0 - 2026-10-12
 
 ### Added
 - **Update check (opt-in):** a "new version available" banner, from one small request to omllabs.com at most once a day.
@@ -10,7 +10,7 @@ All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://
 - **Welcome tour** on first launch, with the update opt-in and one-click import from PuTTY or MobaXterm when there are no sessions yet.
   Reopen it any time from Help → Welcome Tour.
 - **Help menu:** User Guide, What's New (this file) and Check for Updates.
-- **New Linux app (preview):** a native desktop app built on the same core as the Windows app, replacing the old Linux build.
+- **New Linux app:** a native desktop app built on the same core as the Windows app, replacing the old Linux build.
   macOS is next.
   - **Terminal:** saved sessions with folders and search; SSH, Telnet, serial and local shell tabs (bash, zsh, fish, pwsh in
     a real pseudo-terminal); find in scrollback; zoom; session logging; split view with synchronized typing; macros; a
