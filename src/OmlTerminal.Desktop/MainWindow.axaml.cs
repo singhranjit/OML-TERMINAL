@@ -361,17 +361,35 @@ public partial class MainWindow : Window
         ShellsMenu.IsEnabled = items.Count > 0;
     }
 
-    private void Connect(SessionProfile saved, bool remember = true)
+    /// <summary>One terminal (session + view). A tab holds one pane, or two when split.</summary>
+    private sealed record Pane(TerminalTabViewModel Vm, TerminalView View, Avalonia.Controls.Shapes.Ellipse Dot);
+
+    /// <summary>A split tab: both panes, the grid hosting them, and whether typing is mirrored.</summary>
+    private sealed class SplitState
+    {
+        public required Pane A { get; set; }
+        public required Pane B { get; set; }
+        public required Grid Host { get; init; }
+        public bool Sync { get; set; }
+        public Pane Other(Pane p) => p == A ? B : A;
+    }
+
+    private readonly Dictionary<TabItem, SplitState> _splits = new();
+    private readonly Dictionary<TabItem, TextBlock> _tabTitles = new();
+    private readonly Dictionary<TerminalView, Pane> _panes = new();
+
+    /// <summary>Builds a connected-on-layout terminal for a saved (or ad-hoc) profile, or null after telling the user why not.</summary>
+    private Pane? CreatePane(SessionProfile saved)
     {
         var p = _vm.Resolve(saved);
         if (p.Protocol is not (ProtocolKind.Ssh or ProtocolKind.Telnet or ProtocolKind.Serial or ProtocolKind.Local))
         {
             _ = Dialogs.MessageAsync(this, "Not available yet", $"{p.Protocol} sessions aren't available in the Linux/macOS app yet - they're coming in a later update.");
-            return;
+            return null;
         }
         ITerminalTransport transport;
         try { transport = TransportFactory.Create(p); }
-        catch (Exception ex) { _ = Dialogs.MessageAsync(this, "Can't open session", ex.Message); return; }
+        catch (Exception ex) { _ = Dialogs.MessageAsync(this, "Can't open session", ex.Message); return null; }
 
         var engine = new XTermEngine(scrollback: Math.Clamp(_vm.Settings.ScrollbackLines, 500, 200_000));
         if (_vm.Settings.HighlightKeywords) engine.Highlights = HighlightRuleSet.Default;
@@ -389,16 +407,16 @@ public partial class MainWindow : Window
         view.Session = session;
         view.Ready += (cols, rows) => _ = tabVm.ConnectAsync(cols, rows);
         view.GridSizeChanged += (cols, rows) => { if (CurrentTab()?.View == view) StatusSize.Text = $"{cols} × {rows}"; };
-
-        var title = new TextBlock { Text = p.Name, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis };
         var dot = new Avalonia.Controls.Shapes.Ellipse { Width = 7, Height = 7, Fill = (IBrush)this.FindResource("OmlAccent")!, VerticalAlignment = VerticalAlignment.Center };
-        var close = new Button { Content = "×", FontSize = 10, Padding = new Thickness(5, 1), Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
-        ToolTip.SetTip(close, "Close tab (Ctrl+W)");
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Children = { dot, title, close } };
-        ToolTip.SetTip(header, $"{tabVm.ProtocolText} · {tabVm.HostText}");
-        var tab = new TabItem { Header = header, Content = view, FontSize = 13 };
-        close.Click += (_, _) => CloseTab(tab);
-        header.PointerPressed += (_, e) => { if (e.GetCurrentPoint(header).Properties.IsMiddleButtonPressed) CloseTab(tab); };
+        var pane = new Pane(tabVm, view, dot);
+        _panes[view] = pane;
+        view.GotFocus += (_, _) => OnPaneFocused(pane);
+        view.UserInput += bytes =>
+        {
+            // Synchronized typing: keystrokes in one pane go to the other pane's session too.
+            if (TabOf(pane) is { } t && _splits.TryGetValue(t, out var split) && split.Sync && split.Other(pane).Vm.Session.IsConnected)
+                split.Other(pane).Vm.Session.Send(bytes);
+        };
 
         session.Ended += _ => Dispatcher.UIThread.Post(() =>
         {
@@ -406,13 +424,165 @@ public partial class MainWindow : Window
             if (CurrentTab()?.Vm == tabVm) Status($"{p.Name}: disconnected");
         });
         session.Reconnected += () => Dispatcher.UIThread.Post(() => dot.Fill = (IBrush)this.FindResource("OmlAccent")!);
+        return pane;
+    }
 
-        _tabs[tab] = (tabVm, view);
+    private void Connect(SessionProfile saved, bool remember = true)
+    {
+        if (CreatePane(saved) is not { } pane) return;
+        var p = pane.Vm.Profile;
+        var title = new TextBlock { Text = p.Name, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 260, TextTrimming = TextTrimming.CharacterEllipsis };
+        var close = new Button { Content = "×", FontSize = 10, Padding = new Thickness(5, 1), Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
+        ToolTip.SetTip(close, "Close tab (Ctrl+W)");
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Children = { pane.Dot, title, close } };
+        ToolTip.SetTip(header, $"{pane.Vm.ProtocolText} · {pane.Vm.HostText}");
+        var tab = new TabItem { Header = header, Content = pane.View, FontSize = 13 };
+        close.Click += (_, _) => CloseTab(tab);
+        header.PointerPressed += (_, e) => { if (e.GetCurrentPoint(header).Properties.IsMiddleButtonPressed) CloseTab(tab); };
+
+        _tabs[tab] = (pane.Vm, pane.View);
+        _tabTitles[tab] = title;
         Tabs.Items.Add(tab);
         Tabs.SelectedItem = tab;
         UpdateStartPanel();
         if (remember && !_vm.IsLocked && _vm.Sessions.Contains(saved)) { _vm.NoteRecent(saved); }
-        Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(() => pane.View.Focus(), DispatcherPriority.Background);
+    }
+
+    private TabItem? TabOf(Pane pane) =>
+        _tabs.FirstOrDefault(kv => kv.Value.View == pane.View || (_splits.TryGetValue(kv.Key, out var s) && (s.A == pane || s.B == pane))).Key;
+
+    /// <summary>Every open terminal, both panes of split tabs included.</summary>
+    private IEnumerable<(TerminalTabViewModel Vm, TerminalView View)> AllPanes() =>
+        _tabs.Keys.SelectMany(t => _splits.TryGetValue(t, out var s)
+            ? new[] { (s.A.Vm, s.A.View), (s.B.Vm, s.B.View) }
+            : new[] { _tabs[t] });
+
+    /// <summary>In a split tab, the focused pane becomes the tab's "current" terminal for every menu action.</summary>
+    private void OnPaneFocused(Pane pane)
+    {
+        if (TabOf(pane) is not { } tab || !_splits.TryGetValue(tab, out var split)) return;
+        if (_tabs[tab].View == pane.View) return;
+        _tabs[tab] = (pane.Vm, pane.View);
+        PaintSplit(split, pane);
+        if (Tabs.SelectedItem == tab) OnTabChanged();
+    }
+
+    // ---------- split view ----------
+
+    private void SplitRight_Click(object? sender, RoutedEventArgs e) => _ = SplitAsync(horizontal: true);
+    private void SplitDown_Click(object? sender, RoutedEventArgs e) => _ = SplitAsync(horizontal: false);
+
+    private async Task SplitAsync(bool horizontal)
+    {
+        if (Tabs.SelectedItem is not TabItem tab || !_tabs.TryGetValue(tab, out var cur))
+        {
+            await Dialogs.MessageAsync(this, "Split view", "Select a terminal tab first, then split it to open a second session beside it.");
+            return;
+        }
+        if (_splits.ContainsKey(tab)) { await Dialogs.MessageAsync(this, "Split view", "This tab is already split - close one pane (Session > Close Pane) to split it another way."); return; }
+        var chosen = await new SessionPickerWindow(_vm.IsLocked ? [] : _vm.Sessions.ToList(), cur.Vm.Profile).ShowDialog<SessionProfile?>(this);
+        if (chosen is null || CreatePane(chosen) is not { } second) return;
+        if (!_tabs.ContainsKey(tab)) { CloseView(second.Vm, second.View); return; } // the tab closed while picking
+
+        var first = _panes[cur.View];
+        tab.Content = null;
+        var host = new Grid();
+        if (horizontal) host.ColumnDefinitions = ColumnDefinitions.Parse("*,4,*");
+        else host.RowDefinitions = RowDefinitions.Parse("*,4,*");
+        var splitter = new GridSplitter { Background = (IBrush)this.FindResource("OmlBorder")!, ResizeDirection = horizontal ? GridResizeDirection.Columns : GridResizeDirection.Rows };
+        var frameA = PaneFrame(tab, first);
+        var frameB = PaneFrame(tab, second);
+        if (horizontal) { Grid.SetColumn(splitter, 1); Grid.SetColumn(frameB, 2); }
+        else { Grid.SetRow(splitter, 1); Grid.SetRow(frameB, 2); }
+        host.Children.Add(frameA);
+        host.Children.Add(splitter);
+        host.Children.Add(frameB);
+        tab.Content = host;
+        var split = new SplitState { A = first, B = second, Host = host };
+        _splits[tab] = split;
+        _tabs[tab] = (second.Vm, second.View);
+        UpdateSplitHeader(tab);
+        PaintSplit(split, second);
+        OnTabChanged();
+        Dispatcher.UIThread.Post(() => second.View.Focus(), DispatcherPriority.Background);
+    }
+
+    /// <summary>A pane with a slim caption (name, close) and a border that shows which pane has focus.</summary>
+    private Border PaneFrame(TabItem tab, Pane pane)
+    {
+        var close = new Button { Content = "×", FontSize = 10, Padding = new Thickness(6, 0), Background = Brushes.Transparent };
+        ToolTip.SetTip(close, "Close this pane");
+        close.Click += (_, _) => ClosePane(tab, pane);
+        var caption = new DockPanel { Background = (IBrush)this.FindResource("OmlSidebar")!, Children = {
+            new TextBlock { Text = pane.Vm.Profile.Name, FontSize = 11.5, Margin = new Thickness(8, 2), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis } } };
+        DockPanel.SetDock(close, Dock.Right);
+        caption.Children.Insert(0, close);
+        var dock = new DockPanel();
+        DockPanel.SetDock(caption, Dock.Top);
+        dock.Children.Add(caption);
+        dock.Children.Add(pane.View);
+        return new Border { BorderThickness = new Thickness(1), BorderBrush = Brushes.Transparent, Child = dock, Tag = pane };
+    }
+
+    private void PaintSplit(SplitState split, Pane active)
+    {
+        var accent = (IBrush)this.FindResource("OmlAccent")!;
+        foreach (var frame in split.Host.Children.OfType<Border>())
+            frame.BorderBrush = frame.Tag == active ? (split.Sync ? Ui.Amber : accent) : (split.Sync ? Ui.Amber : Brushes.Transparent);
+    }
+
+    private void UpdateSplitHeader(TabItem tab)
+    {
+        if (!_tabTitles.TryGetValue(tab, out var title)) return;
+        title.Text = _splits.TryGetValue(tab, out var s)
+            ? $"{s.A.Vm.Profile.Name} | {s.B.Vm.Profile.Name}{(s.Sync ? "  ⇄" : "")}"
+            : _tabs[tab].Vm.Profile.Name;
+    }
+
+    private void ClosePane_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Tabs.SelectedItem is TabItem tab && _tabs.TryGetValue(tab, out var cur))
+        {
+            if (_splits.ContainsKey(tab)) ClosePane(tab, _panes[cur.View]);
+            else CloseTab(tab);
+        }
+    }
+
+    /// <summary>Closes one pane of a split tab; the other pane becomes the whole tab again.</summary>
+    private void ClosePane(TabItem tab, Pane pane)
+    {
+        if (!_splits.Remove(tab, out var split)) { CloseTab(tab); return; }
+        var keep = split.Other(pane);
+        foreach (var frame in split.Host.Children.OfType<Border>()) ((DockPanel)frame.Child!).Children.Clear(); // free the views from their frames
+        CloseView(pane.Vm, pane.View);
+        tab.Content = keep.View;
+        _tabs[tab] = (keep.Vm, keep.View);
+        UpdateSplitHeader(tab);
+        OnTabChanged();
+        Dispatcher.UIThread.Post(() => keep.View.Focus(), DispatcherPriority.Background);
+    }
+
+    private void Sync_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Tabs.SelectedItem is not TabItem tab || !_splits.TryGetValue(tab, out var split))
+        {
+            SyncMenu.IsChecked = false;
+            _ = Dialogs.MessageAsync(this, "Synchronize typing", "Split a terminal tab first (Session > Split Right or Split Down) - then what you type in one pane goes to both.");
+            return;
+        }
+        split.Sync = SyncMenu.IsChecked;
+        UpdateSplitHeader(tab);
+        PaintSplit(split, _panes[_tabs[tab].View]);
+        Status(split.Sync ? "Typing goes to both panes." : "Synchronized typing off.");
+    }
+
+    private void CloseView(TerminalTabViewModel vm, TerminalView view)
+    {
+        _panes.Remove(view);
+        if (_lastTerminal?.View == view) _lastTerminal = null;
+        view.Detach();
+        try { vm.Close(); } catch { }
     }
 
     private (TerminalTabViewModel Vm, TerminalView View)? CurrentTab() =>
@@ -435,6 +605,7 @@ public partial class MainWindow : Window
         else { Status("Ready"); StatusSize.Text = ""; }
         if (FindBar.IsVisible) RunFind(keepPosition: false);
         UpdateLogMenu();
+        SyncMenu.IsChecked = Tabs.SelectedItem is TabItem st && _splits.TryGetValue(st, out var sp) && sp.Sync;
     }
 
     private void CloseTab(TabItem tab)
@@ -448,9 +619,13 @@ public partial class MainWindow : Window
             return;
         }
         if (!_tabs.Remove(tab, out var t)) return;
-        if (_lastTerminal?.View == t.View) _lastTerminal = null;
-        t.View.Detach();
-        try { t.Vm.Close(); } catch { }
+        _tabTitles.Remove(tab);
+        if (_splits.Remove(tab, out var split))
+        {
+            CloseView(split.A.Vm, split.A.View);
+            CloseView(split.B.Vm, split.B.View);
+        }
+        else CloseView(t.Vm, t.View);
         Tabs.Items.Remove(tab);
         UpdateStartPanel();
     }
@@ -577,7 +752,7 @@ public partial class MainWindow : Window
 
     // ---------- multi-execution ----------
 
-    private IEnumerable<TerminalTabViewModel> AllTerminalTabs() => Tabs.Items.OfType<TabItem>().Where(_tabs.ContainsKey).Select(t => _tabs[t].Vm);
+    private IEnumerable<TerminalTabViewModel> AllTerminalTabs() => AllPanes().Select(p => p.Vm);
 
     private IEnumerable<TerminalSession> MultiExecTargets() => AllTerminalTabs().Where(t => !_multiExecExcluded.Contains(t)).Select(t => t.Session);
 
@@ -717,7 +892,7 @@ public partial class MainWindow : Window
         _vm.Settings.HighlightKeywords = HighlightMenu.IsChecked;
         try { _vm.SaveSettings(); } catch { }
         var rules = _vm.Settings.HighlightKeywords ? HighlightRuleSet.Default : null;
-        foreach (var (vm, view) in _tabs.Values)
+        foreach (var (vm, view) in AllPanes())
         {
             vm.Session.Engine.Highlights = rules;
             view.InvalidateVisual();
@@ -879,7 +1054,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { await Dialogs.MessageAsync(this, "Could not save settings", ex.Message); return; }
         _fontSize = _vm.Settings.FontSize;
-        foreach (var (vm, view) in _tabs.Values)
+        foreach (var (vm, view) in AllPanes())
         {
             view.TerminalFontFamily = _vm.Settings.FontFamily;
             view.TerminalFontSize = _fontSize;
@@ -925,7 +1100,7 @@ public partial class MainWindow : Window
     private void SetFont(double size)
     {
         _fontSize = Math.Clamp(size, MainViewModel.MinFont, MainViewModel.MaxFont);
-        foreach (var (_, view) in _tabs.Values) view.TerminalFontSize = _fontSize;
+        foreach (var (_, view) in AllPanes()) view.TerminalFontSize = _fontSize;
         _vm.Settings.FontSize = _fontSize;
         try { _vm.SaveSettings(); } catch { }
         Status($"Font size {_fontSize}");
@@ -1011,6 +1186,8 @@ public partial class MainWindow : Window
             (true, Key.B) => () => ToggleSidebar_Click(null, e),
             (true, Key.S) => () => Sftp_Click(null, e),
             (true, Key.M) => () => MultiExec_Click(null, e),
+            (true, Key.E) => () => SplitRight_Click(null, e),
+            (true, Key.O) => () => SplitDown_Click(null, e),
             (true, Key.Q) => Close,
             (false, Key.OemComma) => () => Settings_Click(null, e),
             (_, Key.OemPlus or Key.Add) => () => SetFont(_fontSize + 1),

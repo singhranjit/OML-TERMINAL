@@ -44,6 +44,11 @@
         <Separator />
         <MenuItem Header="Save Scroll_back Snapshot..." Click="SaveScrollback_Click" />
         <Separator />
+        <MenuItem Header="Split _Right..." InputGesture="Ctrl+Shift+E" Click="SplitRight_Click" />
+        <MenuItem Header="Split Do_wn..." InputGesture="Ctrl+Shift+O" Click="SplitDown_Click" />
+        <MenuItem x:Name="SyncMenu" Header="S_ynchronize Typing in Split" ToggleType="CheckBox" Click="Sync_Click" />
+        <MenuItem Header="Close _Pane" Click="ClosePane_Click" />
+        <Separator />
         <MenuItem Header="Troubleshooting _Workflows..." Click="Workflows_Click" />
         <Separator />
         <MenuItem x:Name="RecordMenu" Header="Start _Recording Macro" Click="Record_Click" />
