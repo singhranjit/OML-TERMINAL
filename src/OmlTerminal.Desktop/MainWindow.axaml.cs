@@ -13,6 +13,7 @@ using OmlTerminal.Core.Persistence;
 using OmlTerminal.Core.Shells;
 using OmlTerminal.Core.Terminal;
 using OmlTerminal.Core.Transports;
+using OmlTerminal.Core.Workflows;
 using OmlTerminal.Desktop.Controls;
 using OmlTerminal.Desktop.Tools;
 
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
     private TerminalSession? _recordingSession;
     private Action<byte[]>? _recordHandler;
     private readonly HashSet<TerminalTabViewModel> _multiExecExcluded = new();
+    private readonly JsonWorkflowStore _workflowStore = new();
 
     /// <summary>The main window, for tool helpers that need a TopLevel (clipboard, file pickers).</summary>
     public static MainWindow? Current { get; private set; }
@@ -649,6 +651,63 @@ public partial class MainWindow : Window
         var sent = MultiExecutor.Broadcast(targets, text);
         MultiExecCount.Text = $"Sent to {sent} session(s)";
         if (sent > 0) MultiExecBox.Text = "";
+    }
+
+    // ---------- troubleshooting workflows ----------
+
+    private async void Workflows_Click(object? sender, RoutedEventArgs e)
+    {
+        List<TroubleshootingWorkflow> current;
+        try { current = _workflowStore.Load(); }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Troubleshooting workflows", ex.Message); return; }
+        var result = await new WorkflowWindow(current).ShowDialog<WorkflowWindow.Result?>(this);
+        if (result is null) return;
+        try { _workflowStore.Save(result.Workflows); }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't save workflows", ex.Message); return; }
+        if (result.Run is not { } workflow) { Status($"Saved {result.Workflows.Count} workflow(s)."); return; }
+        if (CurrentTab() is not { } tab || !tab.Vm.Session.IsConnected)
+        {
+            await Dialogs.MessageAsync(this, "Run workflow", "Select a connected terminal session first.");
+            return;
+        }
+        if (!await Dialogs.ConfirmAsync(this, "Review workflow commands",
+                $"Target: {tab.Vm.Profile.Display}\nWorkflow: {workflow.Name}\n\n{string.Join("\n", workflow.Commands)}", "Run on this session")) return;
+        try { await WorkflowRunner.RunAsync(tab.Vm.Session, workflow); }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Workflow stopped", ex.Message); }
+    }
+
+    private async void ExportWorkflows_Click(object? sender, RoutedEventArgs e)
+    {
+        var workflows = _workflowStore.Load();
+        if (workflows.Count == 0) { await Dialogs.MessageAsync(this, "Export workflows", "There are no saved workflows to export."); return; }
+        var path = await ToolUi.PickSavePathAsync("oml-terminal-workflows", ".json", "Workflow JSON");
+        if (path is null) return;
+        try
+        {
+            new JsonWorkflowStore(path).Save(workflows);
+            await Dialogs.MessageAsync(this, "Workflows exported", $"Exported {workflows.Count} workflow(s). Review the commands for embedded credentials or private addresses before sharing.\n{path}");
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't export workflows", ex.Message); }
+    }
+
+    private async void ImportWorkflows_Click(object? sender, RoutedEventArgs e)
+    {
+        var path = await ToolUi.PickOpenPathAsync("Import workflows", ("Workflow JSON", ["*.json"]));
+        if (path is null) return;
+        try
+        {
+            var incoming = new JsonWorkflowStore(path).Load();
+            if (incoming.Count == 0) { await Dialogs.MessageAsync(this, "Import workflows", "No valid workflows were found in that file."); return; }
+            var merged = _workflowStore.Load();
+            foreach (var w in incoming)
+            {
+                int i = merged.FindIndex(x => x.Id == w.Id);
+                if (i >= 0) merged[i] = w; else merged.Add(w);
+            }
+            _workflowStore.Save(merged);
+            await Dialogs.MessageAsync(this, "Workflows imported", $"Imported or updated {incoming.Count} workflow(s). Review the commands before running them.");
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't import workflows", ex.Message); }
     }
 
     // ---------- keyword highlighting ----------

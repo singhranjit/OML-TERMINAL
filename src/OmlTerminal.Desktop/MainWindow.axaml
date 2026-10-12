@@ -20,10 +20,12 @@
           <MenuItem Header="From _SecureCRT..." Click="ImportSecureCrt_Click" />
           <Separator />
           <MenuItem Header="Sessions File (_CSV/JSON)..." Click="ImportFile_Click" />
+          <MenuItem Header="_Workflows..." Click="ImportWorkflows_Click" />
         </MenuItem>
         <MenuItem Header="_Export">
           <MenuItem Header="_Sessions..." Click="ExportSessions_Click" />
           <MenuItem Header="Shareable _Config (no secrets)..." Click="ExportShareable_Click" />
+          <MenuItem Header="_Workflows..." Click="ExportWorkflows_Click" />
         </MenuItem>
         <MenuItem Header="_Settings..." InputGesture="Ctrl+OemComma" Click="Settings_Click" />
         <Separator />
@@ -41,6 +43,8 @@
         <MenuItem Header="SSH _Tunnels..." Click="Tunnels_Click" />
         <Separator />
         <MenuItem Header="Save Scroll_back Snapshot..." Click="SaveScrollback_Click" />
+        <Separator />
+        <MenuItem Header="Troubleshooting _Workflows..." Click="Workflows_Click" />
         <Separator />
         <MenuItem x:Name="RecordMenu" Header="Start _Recording Macro" Click="Record_Click" />
         <MenuItem x:Name="PlayMacroMenu" Header="_Play Macro" />
