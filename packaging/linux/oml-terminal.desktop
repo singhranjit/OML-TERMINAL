@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=OML Terminal
+GenericName=Terminal and Network Toolkit
+Comment=SSH, Telnet, serial and local shells with a network engineer's toolkit
+Exec=oml-terminal
+Icon=oml-terminal
+Terminal=false
+Categories=Network;System;TerminalEmulator;
+Keywords=ssh;telnet;serial;sftp;network;traceroute;ping;snmp;wifi;
+StartupWMClass=oml-terminal
