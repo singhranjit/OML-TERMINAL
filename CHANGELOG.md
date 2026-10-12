@@ -10,15 +10,25 @@ All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://
 - **Welcome tour** on first launch, with the update opt-in and one-click import from PuTTY or MobaXterm when there are no sessions yet.
   Reopen it any time from Help → Welcome Tour.
 - **Help menu:** User Guide, What's New (this file) and Check for Updates.
-- **Linux and macOS app (preview, in progress):** a new native desktop app built on the same core as the Windows app.
-  So far: saved sessions with folders and search, SSH, Telnet, serial and local shell tabs (bash, zsh, fish, pwsh in a real
-  pseudo-terminal), find in scrollback, zoom, PuTTY import from `~/.putty/sessions`. It replaces the old Linux build once it's complete.
+- **New Linux app (preview):** a native desktop app built on the same core as the Windows app, replacing the old Linux build.
+  macOS is next.
+  - **Terminal:** saved sessions with folders and search; SSH, Telnet, serial and local shell tabs (bash, zsh, fish, pwsh in
+    a real pseudo-terminal); find in scrollback; zoom; session logging; split view with synchronized typing; macros; a
+    multi-execution bar; troubleshooting workflows; keyword highlighting.
+  - **SSH extras:** an SFTP browser (browse, upload, download, edit, rename, delete) and SSH tunnels (local, remote, SOCKS).
+  - **Every tool from the Windows app**, including Visual Trace and WireWalk, Ping Monitor, MRTG graphs, Topology Mapper,
+    Wi-Fi Analyzer (using `iw`/NetworkManager), Packet Capture and Analyzer (libpcap/tshark), config backups, Change Guard,
+    the firewall builders and migration, Password Manager, the network services and the AI Copilot.
+  - **Import and export:** sessions from PuTTY, MobaXterm, SecureCRT, CSV/JSON; export sessions, a shareable config and workflows.
+  - **Packages:** a `.deb` (installs to `/opt/oml-terminal` and grants the raw-socket and capture capabilities, so traceroute,
+    ping monitoring and live capture work without root) and an AppImage (falls back to the system `ping` for traceroute).
 
 ### Security
 - **Session passwords are never stored in plain text.** Without a master password, session passwords, enable passwords,
   key passphrases and jump-host passwords were written to `sessions.json` as plain text. They're now encrypted for your
   user account on this computer (Windows DPAPI; on Linux/macOS a key file readable only by you). Existing files are
   encrypted on the next save. Note: an older version can't read the encrypted passwords if you downgrade.
+  An export you choose to include passwords in is still written in plain text, so it can be imported on another computer.
 
 ### Fixed
 - **FTP server:** a passive port range entered high-to-low (e.g. 50100-50000) offered no ports at all; it now works either way.
