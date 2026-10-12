@@ -1578,7 +1578,7 @@ public sealed partial class MainWindow : Window
                 {
                     return includeSecrets ? s.Clone() : ShareSafeCopy(s);
                 });
-                new JsonSessionStore(file.Path).Save(toExport);
+                new JsonSessionStore(file.Path) { PlainTextSecrets = includeSecrets }.Save(toExport);
             }
             await MessageAsync("Export complete", $"Saved {_vm.Sessions.Count} session(s) to:\n{file.Path}");
         }

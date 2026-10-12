@@ -12,6 +12,10 @@ public sealed class JsonSessionStore(string? path = null, SecretProtector? prote
     /// Linux/macOS). Plain values from older versions load as-is and are encrypted on the next save.</summary>
     public SecretProtector? Protector { get; set; } = protector;
 
+    /// <summary>For a portable export the user explicitly asked to include passwords in: write secrets as plain text,
+    /// since a LocalSecret value can only be read back by this user on this machine.</summary>
+    public bool PlainTextSecrets { get; init; }
+
     /// <summary>True if the file contains encrypted passwords (so a master password is needed to read them).</summary>
     public bool HasProtectedSecrets()
     {
@@ -73,7 +77,7 @@ public sealed class JsonSessionStore(string? path = null, SecretProtector? prote
     }
 
     private string Hide(string value) =>
-        string.IsNullOrEmpty(value) ? value : Protector is not null ? Protector.Protect(value) : LocalSecret.Protect(value);
+        string.IsNullOrEmpty(value) || PlainTextSecrets ? value : Protector is not null ? Protector.Protect(value) : LocalSecret.Protect(value);
 
     /// <summary>A secret that can't be decrypted (wrong master password, another user or machine) loads as empty.</summary>
     private string Reveal(string value)

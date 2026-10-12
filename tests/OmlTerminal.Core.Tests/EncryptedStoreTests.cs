@@ -29,6 +29,15 @@ public class EncryptedStoreTests : IDisposable
     }
 
     [Fact]
+    public void PortableExportWithPasswords_IsPlainText_AndImportsElsewhere()
+    {
+        // Even with a master password set, an export the user chose to include passwords in must be readable on another machine.
+        new JsonSessionStore(File_, SecretProtector.FromPassword("master", _salt)) { PlainTextSecrets = true }.Save([P()]);
+        Assert.Contains("hunter2", File.ReadAllText(File_));
+        Assert.Equal("hunter2", Assert.Single(new JsonSessionStore(File_).Load()).Password);
+    }
+
+    [Fact]
     public void WrongMasterPassword_LoadsSessionsButWithEmptyPasswords()
     {
         new JsonSessionStore(File_, SecretProtector.FromPassword("right", _salt)).Save([P()]);
@@ -37,7 +46,7 @@ public class EncryptedStoreTests : IDisposable
         Assert.Equal("", loaded.Password);
     }
 
-    /// <summary>A sessions.json from before secrets were always encrypted - written by hand, as no current code path writes plain text.</summary>
+    /// <summary>A sessions.json from before secrets were always encrypted - written by hand, as only an explicit export writes plain text.</summary>
     private void WriteLegacyPlainFile()
     {
         Directory.CreateDirectory(_dir);

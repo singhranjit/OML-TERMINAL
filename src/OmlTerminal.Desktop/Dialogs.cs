@@ -51,6 +51,19 @@ public static class Dialogs
         return await w.ShowDialog<bool>(owner);
     }
 
+    /// <summary>Two choices plus Cancel: returns false for the first, true for the second, null if cancelled.</summary>
+    public static async Task<bool?> ChoiceAsync(Window owner, string title, string text, string first, string second)
+    {
+        var a = new Button { Content = first, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var b = new Button { Content = second, Classes = { "accent" }, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var w = Shell(title, Body(text), cancel, a, b);
+        a.Click += (_, _) => w.Close(false);
+        b.Click += (_, _) => w.Close(true);
+        cancel.Click += (_, _) => w.Close(null);
+        return await w.ShowDialog<bool?>(owner);
+    }
+
     /// <summary>A larger free-text box (lists, pasted config). Returns the text, or null if cancelled.</summary>
     public static async Task<string?> PromptMultilineAsync(Window owner, string title, string text, string placeholder = "", string okText = "OK", string initial = "")
     {

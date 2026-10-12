@@ -195,26 +195,132 @@ public partial class MainWindow : Window
         return false;
     }
 
+    // ---------- import / export ----------
+
     private async void ImportPutty_Click(object? sender, RoutedEventArgs e)
     {
         if (_vm.IsLocked) return;
         var found = PuttySessionImporter.FindSessions();
-        var fresh = found.Where(f => !_vm.Sessions.Any(s => s.Name.Equals(f.Profile.Name, StringComparison.OrdinalIgnoreCase)
-                                                          && s.Host.Equals(f.Profile.Host, StringComparison.OrdinalIgnoreCase))).ToList();
-        if (fresh.Count == 0)
+        if (found.Count == 0)
         {
-            await Dialogs.MessageAsync(this, "Import PuTTY sessions", found.Count == 0
-                ? "No PuTTY saved sessions were found" + (OperatingSystem.IsWindows() ? "." : " in ~/.putty/sessions.")
-                : "All of your PuTTY sessions are already in OML Terminal.");
+            await Dialogs.MessageAsync(this, "Import from PuTTY", "No PuTTY saved sessions were found" + (OperatingSystem.IsWindows() ? "." : " in ~/.putty/sessions."));
             return;
         }
-        int ppk = fresh.Count(f => f.KeyNeedsConversion);
-        var msg = $"Import {fresh.Count} PuTTY session(s) into the \"Imported from PuTTY\" folder?";
-        if (ppk > 0) msg += $"\n\n{ppk} use a .ppk key, which needs converting to OpenSSH format (puttygen key.ppk -O private-openssh -o key) - they're imported with password login meanwhile.";
-        if (!await Dialogs.ConfirmAsync(this, "Import PuTTY sessions", msg, "Import")) return;
-        foreach (var f in fresh) TrySave(() => _vm.Add(f.Profile));
+        int ppk = found.Count(f => f.KeyNeedsConversion);
+        await ImportAsync(found.Select(f => f.Profile).ToList(), "Import from PuTTY", "PuTTY",
+            ppk > 0 ? $"{ppk} use a .ppk key, which needs converting to OpenSSH format (puttygen key.ppk -O private-openssh -o key) - they're imported with password login meanwhile." : null);
+    }
+
+    private async void ImportMobaXterm_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.IsLocked) return;
+        var path = await ToolUi.PickOpenPathAsync("Import from MobaXterm", ("MobaXterm sessions", ["*.mxtsessions", "*.ini", "*.mobaconf", "*.txt"]));
+        if (path is null) return;
+        List<ImportResult> found;
+        try { found = MobaXtermImporter.Parse(await File.ReadAllTextAsync(path)); }
+        catch (ImportException ex) { await Dialogs.MessageAsync(this, "Import from MobaXterm", ex.Message); return; }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't read the file", ex.Message); return; }
+        await ImportResultsAsync(found, "MobaXterm", Path.GetFileName(path));
+    }
+
+    private async void ImportSecureCrt_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.IsLocked) return;
+        // SecureCRT keeps each session as an .ini under Config/Sessions; ask for that folder (and any config passphrase).
+        var pass = await Dialogs.PromptAsync(this, "Import from SecureCRT",
+            "Next, pick your SecureCRT \"Sessions\" folder (usually ~/.vandyke/SecureCRT/Config/Sessions). If you set a Configuration Passphrase in SecureCRT, enter it here so saved passwords can be decrypted - otherwise leave it blank.",
+            password: true, okText: "Choose folder...");
+        if (pass is null) return;
+        var folder = await ToolUi.PickFolderAsync();
+        if (folder is null) return;
+        List<ImportResult> found;
+        try { found = SecureCrtImporter.ScanDirectory(folder, pass); }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't read SecureCRT sessions", ex.Message); return; }
+        await ImportResultsAsync(found, "SecureCRT", Path.GetFileName(folder));
+    }
+
+    private async void ImportFile_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.IsLocked) return;
+        var path = await ToolUi.PickOpenPathAsync("Import sessions", ("Sessions (JSON or CSV)", ["*.json", "*.csv"]));
+        if (path is null) return;
+        List<SessionProfile> found;
+        try
+        {
+            found = path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+                ? SessionCsv.Import(await File.ReadAllTextAsync(path))
+                : new JsonSessionStore(path).Load();
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't read the file", ex.Message); return; }
+        // A re-imported export would otherwise collide with the sessions it came from.
+        foreach (var p in found) p.Id = Guid.NewGuid();
+        await ImportAsync(found, "Import sessions", Path.GetFileName(path));
+    }
+
+    private async Task ImportResultsAsync(List<ImportResult> found, string source, string sourceName)
+    {
+        int notes = found.Count(f => f.Note is not null);
+        await ImportAsync(found.Select(f => f.Profile).ToList(), $"Import from {source}", sourceName,
+            notes > 0 ? $"{notes} session(s) need their password re-entered (saved passwords couldn't be brought over)." : null);
+    }
+
+    private async Task ImportAsync(List<SessionProfile> found, string title, string sourceName, string? note = null)
+    {
+        if (found.Count == 0) { await Dialogs.MessageAsync(this, title, $"No sessions were found in {sourceName}."); return; }
+        var chosen = await new ImportWindow(found, sourceName, _vm.Sessions.ToList(), note).ShowDialog<List<SessionProfile>?>(this);
+        if (chosen is null || chosen.Count == 0) return;
+        int added = 0, failed = 0;
+        foreach (var p in chosen)
+        {
+            try { _vm.Add(p); added++; }
+            catch (Exception) { failed++; }
+        }
         RefreshTree();
-        Status($"Imported {fresh.Count} PuTTY session(s).");
+        Status($"Imported {added} session(s).");
+        if (failed > 0) await Dialogs.MessageAsync(this, title, $"Imported {added} session(s); {failed} couldn't be added (missing host or invalid settings).");
+    }
+
+    private async void ExportSessions_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.IsLocked) return;
+        var include = await Dialogs.ChoiceAsync(this, "Export sessions",
+            "Include passwords in the exported file? They're written as plain text so the file can be imported on another computer - handle it carefully.",
+            "Without passwords", "With passwords");
+        if (include is null) return;
+        var path = await ToolUi.PickSavePathAsync("oml-terminal-sessions", ".json", "Sessions JSON - or name it .csv");
+        if (path is null) return;
+        try
+        {
+            if (path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) await File.WriteAllTextAsync(path, SessionCsv.Export(_vm.Sessions, include.Value));
+            else new JsonSessionStore(path) { PlainTextSecrets = include.Value }.Save(_vm.Sessions.Select(s => include.Value ? s.Clone() : ShareSafeCopy(s, keepNotes: true)));
+            Status($"Exported {_vm.Sessions.Count} session(s) to {path}");
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't export sessions", ex.Message); }
+    }
+
+    private async void ExportShareable_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.IsLocked) return;
+        var path = await ToolUi.PickSavePathAsync("oml-terminal-shareable-config", ".json", "Shareable JSON (secrets removed) - or name it .csv");
+        if (path is null) return;
+        try
+        {
+            if (path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) await File.WriteAllTextAsync(path, SessionCsv.Export(_vm.Sessions, includeSecrets: false));
+            else new JsonSessionStore(path).Save(_vm.Sessions.Select(s => ShareSafeCopy(s)));
+            await Dialogs.MessageAsync(this, "Shareable config exported",
+                $"Saved {_vm.Sessions.Count} profiles without passwords, credential links, local key paths, startup commands or notes. Host names and usernames remain in the file - share it only with the intended team.\n{path}");
+        }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't export config", ex.Message); }
+    }
+
+    private static SessionProfile ShareSafeCopy(SessionProfile profile, bool keepNotes = false)
+    {
+        var copy = profile.Clone();
+        copy.Password = copy.EnablePassword = copy.PrivateKeyPassphrase = copy.JumpPassword = "";
+        copy.PrivateKeyPath = "";
+        copy.CredentialId = null;
+        if (!keepNotes) { copy.StartupCommands = ""; copy.Notes = ""; }
+        return copy;
     }
 
     // ---------- tabs ----------
