@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using OmlTerminal.App.ViewModels;
+using OmlTerminal.Core.Macros;
 using OmlTerminal.Core.Models;
 using OmlTerminal.Core.Persistence;
 using OmlTerminal.Core.Shells;
@@ -26,6 +27,12 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, TabItem> _toolTabs = new();
     private (TerminalTabViewModel Vm, TerminalView View)? _lastTerminal;
     private ToolContext? _toolContext;
+    private readonly JsonMacroStore _macroStore = new();
+    private List<Macro> _macros = new();
+    private MacroRecorder? _recorder;
+    private TerminalSession? _recordingSession;
+    private Action<byte[]>? _recordHandler;
+    private readonly HashSet<TerminalTabViewModel> _multiExecExcluded = new();
 
     /// <summary>The main window, for tool helpers that need a TopLevel (clipboard, file pickers).</summary>
     public static MainWindow? Current { get; private set; }
@@ -49,6 +56,11 @@ public partial class MainWindow : Window
         FindCase.IsCheckedChanged += (_, _) => RunFind(keepPosition: false);
         BuildShellsMenu();
         BuildToolList();
+        try { _macros = _macroStore.Load(); } catch { _macros = new(); }
+        RebuildMacroMenus();
+        HighlightMenu.IsChecked = _vm.Settings.HighlightKeywords;
+        MultiExecBox.FontFamily = Ui.Mono;
+        MultiExecBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; SendMultiExec(); } };
         UpdateStartPanel();
         Opened += async (_, _) =>
         {
@@ -482,6 +494,177 @@ public partial class MainWindow : Window
         catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't save scrollback", ex.Message); }
     }
 
+    // ---------- macros ----------
+
+    private void RebuildMacroMenus()
+    {
+        var play = new List<Control>();
+        var delete = new List<Control>();
+        foreach (var m in _macros)
+        {
+            var p = new MenuItem { Header = $"{m.Name}  ({m.Steps.Count} steps)" };
+            p.Click += (_, _) => PlayMacro(m);
+            play.Add(p);
+            var d = new MenuItem { Header = m.Name };
+            d.Click += async (_, _) => await DeleteMacroAsync(m);
+            delete.Add(d);
+        }
+        if (_macros.Count == 0)
+        {
+            play.Add(new MenuItem { Header = "(no macros yet)", IsEnabled = false });
+            delete.Add(new MenuItem { Header = "(no macros yet)", IsEnabled = false });
+        }
+        PlayMacroMenu.ItemsSource = play;
+        DeleteMacroMenu.ItemsSource = delete;
+    }
+
+    private async void Record_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_recorder is null)
+        {
+            if (CurrentTab() is not { } tab || !tab.Vm.Session.IsConnected)
+            {
+                await Dialogs.MessageAsync(this, "Record macro", "Open a connected session tab first, then start recording.");
+                return;
+            }
+            _recorder = new MacroRecorder();
+            _recordingSession = tab.Vm.Session;
+            _recordHandler = data => _recorder?.OnInput(data);
+            _recordingSession.InputSent += _recordHandler;
+            RecordMenu.Header = "Stop _Recording Macro";
+            Status($"Recording a macro on {tab.Vm.Profile.Name} - Session > Stop Recording Macro when done.");
+            return;
+        }
+
+        if (_recordingSession is not null && _recordHandler is not null) _recordingSession.InputSent -= _recordHandler;
+        var steps = _recorder.Finish();
+        _recorder = null; _recordingSession = null; _recordHandler = null;
+        RecordMenu.Header = "Start _Recording Macro";
+        Status("Recording stopped.");
+        if (steps.Count == 0) { await Dialogs.MessageAsync(this, "Record macro", "Nothing was recorded."); return; }
+
+        var name = await Dialogs.PromptAsync(this, "Save macro",
+            $"{steps.Count} step(s) recorded. Name the macro (e.g. Show interfaces). Macros are saved as plain text, so anything you typed while recording - including passwords - is stored.",
+            okText: "Save");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var macro = new Macro { Name = name.Trim(), Steps = steps };
+        _macros.Add(macro);
+        try { _macroStore.Save(_macros); }
+        catch (Exception ex) { _macros.Remove(macro); await Dialogs.MessageAsync(this, "Couldn't save macro", ex.Message); return; }
+        RebuildMacroMenus();
+        Status($"Saved macro \"{macro.Name}\".");
+    }
+
+    private async void PlayMacro(Macro macro)
+    {
+        if (_recorder is not null) { await Dialogs.MessageAsync(this, "Play macro", "Stop recording first."); return; }
+        if (CurrentTab() is not { } tab || !tab.Vm.Session.IsConnected) { await Dialogs.MessageAsync(this, "Play macro", "Select a connected session tab first."); return; }
+        var session = tab.Vm.Session;
+        // Off the UI thread so the per-step delays never freeze the window.
+        _ = Task.Run(async () => { try { await MacroPlayer.PlayAsync(session, macro); } catch (OperationCanceledException) { } });
+    }
+
+    private async Task DeleteMacroAsync(Macro macro)
+    {
+        if (!await Dialogs.ConfirmAsync(this, "Delete macro", $"Delete the macro \"{macro.Name}\"?", "Delete")) return;
+        _macros.Remove(macro);
+        try { _macroStore.Save(_macros); }
+        catch (Exception ex) { await Dialogs.MessageAsync(this, "Couldn't update macros", ex.Message); }
+        RebuildMacroMenus();
+    }
+
+    // ---------- multi-execution ----------
+
+    private IEnumerable<TerminalTabViewModel> AllTerminalTabs() => Tabs.Items.OfType<TabItem>().Where(_tabs.ContainsKey).Select(t => _tabs[t].Vm);
+
+    private IEnumerable<TerminalSession> MultiExecTargets() => AllTerminalTabs().Where(t => !_multiExecExcluded.Contains(t)).Select(t => t.Session);
+
+    private void MultiExec_Click(object? sender, RoutedEventArgs e)
+    {
+        MultiExecBar.IsVisible = !MultiExecBar.IsVisible;
+        if (MultiExecBar.IsVisible)
+        {
+            UpdateMultiExecTargetsLabel();
+            MultiExecCount.Text = $"{MultiExecTargets().Count(s => s.IsConnected)} connected tab(s)";
+            Dispatcher.UIThread.Post(() => MultiExecBox.Focus(), DispatcherPriority.Background);
+        }
+        else CurrentTab()?.View.Focus();
+    }
+
+    private void UpdateMultiExecTargetsLabel()
+    {
+        _multiExecExcluded.RemoveWhere(t => !AllTerminalTabs().Contains(t));
+        var all = AllTerminalTabs().ToList();
+        int included = all.Count(t => !_multiExecExcluded.Contains(t));
+        MultiExecTargetsButton.Content = (all.Count == 0 || included == all.Count ? "All tabs" : $"{included} of {all.Count} tabs") + " ▾";
+    }
+
+    private void MultiExecTargets_Click(object? sender, RoutedEventArgs e)
+    {
+        var items = new List<Control>();
+        var tabs = AllTerminalTabs().ToList();
+        if (tabs.Count == 0) items.Add(new MenuItem { Header = "(no open session tabs)", IsEnabled = false });
+        foreach (var tab in tabs)
+        {
+            var mi = new MenuItem
+            {
+                Header = tab.Session.IsConnected ? tab.Profile.Name : $"{tab.Profile.Name} (not connected)",
+                ToggleType = MenuItemToggleType.CheckBox, IsChecked = !_multiExecExcluded.Contains(tab), StaysOpenOnClick = true,
+            };
+            mi.Click += (_, _) =>
+            {
+                if (mi.IsChecked) _multiExecExcluded.Remove(tab); else _multiExecExcluded.Add(tab);
+                UpdateMultiExecTargetsLabel();
+            };
+            items.Add(mi);
+        }
+        if (tabs.Count > 0)
+        {
+            items.Add(new Separator());
+            var all = new MenuItem { Header = "Select all" };
+            all.Click += (_, _) => { _multiExecExcluded.Clear(); UpdateMultiExecTargetsLabel(); };
+            items.Add(all);
+        }
+        new ContextMenu { ItemsSource = items }.Open(MultiExecTargetsButton);
+    }
+
+    private void MultiExecSend_Click(object? sender, RoutedEventArgs e) => SendMultiExec();
+
+    private void SendMultiExec()
+    {
+        var text = MultiExecBox.Text;
+        if (!string.IsNullOrEmpty(text)) _ = ConfirmAndSendMultiExecAsync(text);
+    }
+
+    /// <summary>Always shows exactly which sessions get the command before sending - one typo on many devices is expensive.</summary>
+    private async Task ConfirmAndSendMultiExecAsync(string text)
+    {
+        var targets = MultiExecTargets().Where(s => s.IsConnected).ToList();
+        if (targets.Count == 0) { MultiExecCount.Text = "No connected tabs"; return; }
+        var names = AllTerminalTabs().Where(t => targets.Contains(t.Session)).GroupBy(t => t.Profile.Display)
+            .Select(g => g.Count() > 1 ? $"{g.Key}  (×{g.Count()})" : g.Key).ToList();
+        if (!await Dialogs.ConfirmAsync(this, "Review multi-device command",
+                $"Send this to {targets.Count} connected session(s)?\n\n{text}\n\n{string.Join("\n", names.Take(25))}{(names.Count > 25 ? $"\n... and {names.Count - 25} more" : "")}",
+                "Send to listed sessions")) return;
+        var sent = MultiExecutor.Broadcast(targets, text);
+        MultiExecCount.Text = $"Sent to {sent} session(s)";
+        if (sent > 0) MultiExecBox.Text = "";
+    }
+
+    // ---------- keyword highlighting ----------
+
+    private void Highlight_Click(object? sender, RoutedEventArgs e)
+    {
+        _vm.Settings.HighlightKeywords = HighlightMenu.IsChecked;
+        try { _vm.SaveSettings(); } catch { }
+        var rules = _vm.Settings.HighlightKeywords ? HighlightRuleSet.Default : null;
+        foreach (var (vm, view) in _tabs.Values)
+        {
+            vm.Session.Engine.Highlights = rules;
+            view.InvalidateVisual();
+        }
+    }
+
     private void CloseTab_Click(object? sender, RoutedEventArgs e)
     {
         if (Tabs.SelectedItem is TabItem t) CloseTab(t);
@@ -768,6 +951,7 @@ public partial class MainWindow : Window
             (true, Key.F) => () => Find_Click(null, e),
             (true, Key.B) => () => ToggleSidebar_Click(null, e),
             (true, Key.S) => () => Sftp_Click(null, e),
+            (true, Key.M) => () => MultiExec_Click(null, e),
             (true, Key.Q) => Close,
             (false, Key.OemComma) => () => Settings_Click(null, e),
             (_, Key.OemPlus or Key.Add) => () => SetFont(_fontSize + 1),

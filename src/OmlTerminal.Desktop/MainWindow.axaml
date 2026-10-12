@@ -41,6 +41,12 @@
         <MenuItem Header="SSH _Tunnels..." Click="Tunnels_Click" />
         <Separator />
         <MenuItem Header="Save Scroll_back Snapshot..." Click="SaveScrollback_Click" />
+        <Separator />
+        <MenuItem x:Name="RecordMenu" Header="Start _Recording Macro" Click="Record_Click" />
+        <MenuItem x:Name="PlayMacroMenu" Header="_Play Macro" />
+        <MenuItem x:Name="DeleteMacroMenu" Header="_Delete Macro" />
+        <Separator />
+        <MenuItem Header="_Multi-Execution Bar" InputGesture="Ctrl+Shift+M" Click="MultiExec_Click" />
       </MenuItem>
       <MenuItem Header="_View">
         <MenuItem Header="Zoom _In" InputGesture="Ctrl+OemPlus" Click="ZoomIn_Click" />
@@ -48,6 +54,7 @@
         <MenuItem Header="_Reset Zoom" InputGesture="Ctrl+D0" Click="ZoomReset_Click" />
         <Separator />
         <MenuItem Header="Toggle _Sidebar" InputGesture="Ctrl+Shift+B" Click="ToggleSidebar_Click" />
+        <MenuItem x:Name="HighlightMenu" Header="_Keyword Highlighting" ToggleType="CheckBox" Click="Highlight_Click" />
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_User Guide" Click="Guide_Click" />
@@ -80,6 +87,16 @@
         <Button DockPanel.Dock="Right" Content="Skip this version" Padding="8,2" Margin="8,0,0,0" Click="UpdateSkip_Click" />
         <Button DockPanel.Dock="Right" Classes="accent" Content="Download" Padding="8,2" Margin="8,0,0,0" Click="UpdateDownload_Click" />
         <TextBlock x:Name="UpdateText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+    <Border x:Name="MultiExecBar" DockPanel.Dock="Bottom" IsVisible="False" Background="{StaticResource OmlSidebar}" BorderBrush="{StaticResource OmlBorder}" BorderThickness="0,1,0,0" Padding="10,6">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left" Text="Send to" VerticalAlignment="Center" Classes="muted" FontSize="12" Margin="0,0,8,0" />
+        <Button x:Name="MultiExecTargetsButton" DockPanel.Dock="Left" Content="All tabs ▾" Padding="8,2" Click="MultiExecTargets_Click" />
+        <Button DockPanel.Dock="Right" Content="×" Padding="8,0" Background="Transparent" Click="MultiExec_Click" />
+        <TextBlock x:Name="MultiExecCount" DockPanel.Dock="Right" VerticalAlignment="Center" Classes="muted" FontSize="12" Margin="10,0" />
+        <Button DockPanel.Dock="Right" Classes="accent" Content="Send" Padding="12,2" Click="MultiExecSend_Click" />
+        <TextBox x:Name="MultiExecBox" Margin="8,0" PlaceholderText="Command to send to every selected session tab (Enter to review and send)" />
       </DockPanel>
     </Border>
     <Grid x:Name="Body" ColumnDefinitions="260,4,*">
