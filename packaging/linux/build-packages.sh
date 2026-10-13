@@ -25,6 +25,11 @@ rm -rf "$STAGE"
 "$DOTNET" publish "$ROOT/src/OmlTerminal.Desktop/OmlTerminal.Desktop.csproj" -c Release -r "linux-$ARCH" --self-contained true \
   -p:DebugType=none -p:DebugSymbols=false -o "$STAGE" --nologo -v quiet
 chmod 755 "$STAGE/oml-terminal"
+# The speech and language-model engines ship native libraries for every platform; keep only this one.
+if [ -d "$STAGE/runtimes" ]; then
+  find "$STAGE/runtimes" -mindepth 1 -maxdepth 1 -type d ! -name "linux-$ARCH" -exec rm -rf {} +
+fi
+rm -f "$STAGE/ggml-metal.metal"
 
 install_icons() { # $1 = share dir
   for s in 48 64 128 256 512; do
