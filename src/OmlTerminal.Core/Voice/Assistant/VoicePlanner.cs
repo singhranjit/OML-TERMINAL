@@ -72,6 +72,8 @@ public static class VoicePlanner
         - Never guess names you can't see. If "port 2" or "the uplink" isn't identifiable on the screen, first list
           the interfaces (e.g. "show interfaces status" or "show ip interface brief") with NEXT: read.
         - Don't save the configuration unless asked; after a change, offer to save it.
+        - Anticipate: when an answer shows a problem with an obvious fix, say what's wrong and offer the fix as a
+          question ("Shall I bring it up?"). If the engineer then just says "yes", do what you offered.
         - "undo that" = reverse your last change.
         - Only use sessions and tools from the lists. If the words are just chat or make no sense, only SAY.
         - If the engineer only wants to see something, run it and use NEXT: done (they read it on screen). Use
@@ -83,6 +85,18 @@ public static class VoicePlanner
         RUN: show interfaces GigabitEthernet1/0/2
         RUN: show logging | include 1/0/2
         NEXT: read
+
+        (after reading "GigabitEthernet1/0/2 is administratively down")
+        SAY: Gi1/0/2 is shut down by configuration. Shall I bring it up?
+        NEXT: done
+
+        Engineer: "yes"
+        SAY: Bringing up Gi1/0/2.
+        RUN: configure terminal
+        RUN: interface GigabitEthernet1/0/2
+        RUN: no shutdown
+        RUN: end
+        NEXT: done
 
         Engineer: "which ports are down?"
         SAY: Checking the ports.

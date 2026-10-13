@@ -45,6 +45,8 @@ public sealed partial class VoiceAssistant
     private readonly List<ChatMessage> _history = new();
     private readonly SemaphoreSlim _busy = new(1, 1);
     private TaskCompletionSource<bool>? _pendingConfirm;
+    private bool _offerOpen;      // the last answer ended by offering to do something ("Shall I bring it up?")
+    private bool _consentGiven;   // ...and the engineer just said yes to it
     private VoiceRisk _pendingRisk;
     private readonly string _logPath;
 
@@ -89,6 +91,8 @@ public sealed partial class VoiceAssistant
         {
             Raise(VoiceEventKind.Heard, text, heard.LanguageName);
             Log($"HEARD [{heard.LanguageName}] {text}");
+            _consentGiven = _offerOpen && VoiceReplyWords.IsYes(text);
+            _offerOpen = false;
             await ProcessAsync(heard, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { Raise(VoiceEventKind.Error, "Stopped."); }
@@ -241,12 +245,20 @@ public sealed partial class VoiceAssistant
 
         if (plan.Next == VoiceNext.Ask || fixedActions.Count == 0)
         {
+            _offerOpen = plan.Say.TrimEnd().EndsWith('?') || plan.Say.TrimEnd().EndsWith('？');
             // For a question still being looked into, "Checking..." was already shown as status - the real answer follows.
             if (plan.Say.Length > 0 && plan.Next != VoiceNext.Read) Raise(VoiceEventKind.Say, plan.Say, speak: true);
             return new Outcome(ran, true, null);
         }
 
-        if (risk != VoiceRisk.ReadOnly && (ConfirmChanges || risk == VoiceRisk.Destructive))
+        if (risk == VoiceRisk.Change && _consentGiven && ConfirmChanges)
+        {
+            // "Shall I bring it up?" - "yes": that yes was the approval; don't ask a second time.
+            Log($"APPROVED by yes to the offer: {string.Join(" | ", fixedActions)}");
+            _consentGiven = false;
+            if (speakSay) Raise(VoiceEventKind.Say, plan.Say, speak: true);
+        }
+        else if (risk != VoiceRisk.ReadOnly && (ConfirmChanges || risk == VoiceRisk.Destructive))
         {
             var target = _host.ActiveTerminal()?.Name ?? "this device";
             var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

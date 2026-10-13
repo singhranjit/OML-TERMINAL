@@ -411,6 +411,34 @@ public class VoiceAssistantTests
     }
 
     [Fact]
+    public async Task YesToTheAssistantsOwnOfferIsTheApproval_ButOnlyForThatOffer()
+    {
+        var (a, sw, host, _) = await Setup(
+            "SAY: Gi1/0/2 is shut down by configuration. Shall I bring it up?\nNEXT: done",
+            "SAY: Bringing it up.\nRUN: interface GigabitEthernet1/0/2\nRUN: no shutdown\nNEXT: done",
+            "SAY: Shutting it.\nRUN: interface GigabitEthernet1/0/2\nRUN: shutdown\nNEXT: done");
+        await a.HandleAsync(Said("why is gig 1/0/2 down?"));
+        await a.HandleAsync(Said("yes"));
+        Assert.Empty(host.Asked); // the yes answered the offer - no second question
+        Assert.Contains("no shutdown", sw.Received);
+        await a.HandleAsync(Said("now shut it again"));
+        Assert.Single(host.Asked); // a new change without an offer is asked about as usual
+    }
+
+    [Fact]
+    public async Task YesToAnOfferNeverApprovesDestructiveCommands()
+    {
+        var (a, sw, host, _) = await Setup(
+            "SAY: The switch looks hung. Shall I reload it?\nNEXT: done",
+            "SAY: Reloading.\nRUN: reload\nNEXT: done");
+        host.Approve = false;
+        await a.HandleAsync(Said("the switch is stuck"));
+        await a.HandleAsync(Said("yes"));
+        Assert.Equal(VoiceRisk.Destructive, Assert.Single(host.Asked).Risk);
+        Assert.DoesNotContain("reload", sw.Received);
+    }
+
+    [Fact]
     public async Task LiteralCommandsRunWithoutTheModel()
     {
         var (a, sw, _, _) = await Setup("SAY: should not be asked\nNEXT: done");
