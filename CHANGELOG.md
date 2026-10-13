@@ -2,7 +2,7 @@
 
 All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://omllabs.com/downloads.html).
 
-## Unreleased
+## 1.1.0 - 2026-10-13
 
 ### Added
 - **Voice Assistant** (Windows and Linux) - replaces Voice Command. Talk naturally, in any language and accent, and the task
