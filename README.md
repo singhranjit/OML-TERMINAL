@@ -66,7 +66,12 @@ License: [GPL-3.0-or-later](LICENSE)
 - **Quick connect:** type `admin@10.0.0.1:22`, `telnet sw1 23` or a saved session's name.
 - **Macros and Scripts:** run your own PowerShell, Python or Bash scripts with session context.
 - **AI Copilot (optional):** a local-LLM assistant with its own connection to a device. It asks before running anything risky.
-- **Voice input:** dictate CLI commands. They're matched against vendor grammars and checked before they're typed.
+- **Voice Assistant:** talk to OML Terminal the way you'd talk to a colleague, in any language and accent
+  ("why is port 2 down?", "put port 5 in VLAN 10", "open the firewall and show me the policies", "undo that").
+  - It reads the screen (device type, prompt, config mode), works out the exact CLI, runs it in your tab, reads the
+    output and answers you - out loud if you like.
+  - Changes wait for your "yes" or a click; anything that can take a device down always needs a click.
+  - Runs fully offline: Whisper for speech (99 languages) and a built-in language model, or use your own model server.
 
 ---
 

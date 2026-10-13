@@ -2,6 +2,31 @@
 
 All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://omllabs.com/downloads.html).
 
+## Unreleased
+
+### Added
+- **Voice Assistant** (Windows and Linux) - replaces Voice Command. Talk naturally, in any language and accent, and the task
+  gets done on the device in front of you.
+  - **Understands what you mean**, not just literal commands: "why is port 2 down?", "bring up port 3 and put it in
+    VLAN 20", "open the core switch", "trace to 8.8.8.8", "undo that". It reads the screen to know the device type,
+    prompt and configuration mode, and remembers the conversation for follow-ups.
+  - **Hears any language:** Whisper speech recognition (99 languages, auto-detected - or pick yours for strong accents).
+    Misheard words are corrected from what's on screen.
+  - **Does the work in your tab:** commands are typed into the terminal you're watching, `--More--` pages are paged
+    through, questions are answered from the real output, and a command the device rejects is corrected once.
+  - **Anticipates:** enters and leaves configuration mode itself, and when an answer shows a problem it offers the fix
+    ("Shall I bring it up?") - say yes and it's done.
+  - **Safe by design:** read-only commands run at once; changes wait for a spoken yes (in any language) or a click;
+    reload, erase and similar always need a click. Every request and command is written to an audit log
+    (`voice-logs`).
+  - **Offline:** speech and the built-in language model (Qwen3 4B, downloaded once, ~2.5 GB) run on your computer.
+    Or point it at your own OpenAI-compatible server (LM Studio, Ollama, vLLM, or a cloud API).
+  - Replies can be spoken aloud; hands-free mode keeps listening. Session menu > Voice Assistant (Ctrl+Shift+V on
+    Windows, Ctrl+Shift+A on Linux); Ctrl+Shift+Space to talk.
+
+### Changed
+- Installers carry only their own platform's native libraries (smaller downloads).
+
 ## 1.0.0 - 2026-10-12
 
 ### Added
