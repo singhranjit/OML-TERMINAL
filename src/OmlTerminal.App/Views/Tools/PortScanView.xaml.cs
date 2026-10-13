@@ -26,7 +26,7 @@ public sealed class PortRow(PortProbeResult r)
     });
 }
 
-public sealed partial class PortScanView : UserControl, IToolView
+public sealed partial class PortScanView : UserControl, IToolView, IVoiceTarget
 {
     private readonly List<PortRow> _all = new();
     private readonly ObservableCollection<PortRow> _shown = new();
@@ -41,6 +41,9 @@ public sealed partial class PortScanView : UserControl, IToolView
 
     /// <summary>Prefills the target, e.g. from a session's context menu.</summary>
     public void SetTarget(string host) => HostBox.Text = host;
+
+    /// <summary>Scanning is intrusive, so voice only fills in the host - the engineer presses Scan.</summary>
+    public void RunFor(string target) => SetTarget(target);
 
     private void Input_KeyDown(object sender, KeyRoutedEventArgs e)
     {

@@ -61,7 +61,7 @@ public sealed class TraceFindingRow
     public override string ToString() => $"{Finding.Severity}: {Finding.Title}";
 }
 
-public sealed partial class PathTraceView : UserControl, IToolView
+public sealed partial class PathTraceView : UserControl, IToolView, IVoiceTarget
 {
     private const double NodeW = 168, NodeH = 86, LanePitch = 112, Left = 18, Top = 22;
     private double ColPitch => Mode == 1 ? 258 : 240; // device mode carries interface labels between columns
@@ -106,6 +106,13 @@ public sealed partial class PathTraceView : UserControl, IToolView
     {
         _cts?.Cancel();
         _refresh.Stop();
+    }
+
+    public void RunFor(string target)
+    {
+        Modes.SelectedItem = Modes.Items[0];
+        TargetBox.Text = target;
+        if (target.Length > 0 && PcStart.IsEnabled) PcStart_Click(this, new RoutedEventArgs());
     }
 
     private void Modes_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)

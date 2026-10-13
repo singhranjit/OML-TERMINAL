@@ -12,6 +12,12 @@ public interface IToolView
     void Shutdown();
 }
 
+/// <summary>A tool the voice assistant can point at a host and start ("trace to 8.8.8.8").</summary>
+public interface IVoiceTarget
+{
+    void RunFor(string target);
+}
+
 /// <summary>What a tool may ask of the main window, without holding a reference to it.</summary>
 public sealed class ToolContext
 {

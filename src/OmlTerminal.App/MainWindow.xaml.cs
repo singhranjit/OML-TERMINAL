@@ -144,6 +144,7 @@ public sealed partial class MainWindow : Window
         // MRTG-style traffic graphing keeps polling while the app is open, tab or no tab.
         Core.Snmp.TrafficGrapher.Shared.Start();
         Closed += (_, _) => Core.Snmp.TrafficGrapher.Shared.Dispose();
+        Closed += (_, _) => DisposeVoice();
 
         RootGrid.Loaded += async (_, _) =>
         {
@@ -375,20 +376,6 @@ public sealed partial class MainWindow : Window
     {
         var dialog = new SftpBrowserDialog(RootGrid.XamlRoot, _vm.Resolve(profile), _vm.Settings, _vm.SaveSettings);
         if (!await dialog.InitializeAsync()) { await ShowDialogAsync(dialog); return; }
-        await ShowDialogAsync(dialog);
-    }
-
-    // ---------- voice commands ----------
-
-    private async void VoiceCommand_Click(object sender, RoutedEventArgs e)
-    {
-        var session = SelectedSession();
-        if (session is null || !session.IsConnected)
-        {
-            await MessageAsync("Voice Command", "Select a connected session tab first.");
-            return;
-        }
-        var dialog = new VoiceCommandDialog(RootGrid.XamlRoot, session, _vm.Settings, _vm.SaveSettings);
         await ShowDialogAsync(dialog);
     }
 
@@ -1147,7 +1134,7 @@ public sealed partial class MainWindow : Window
             new() { Title = "Close Tab", Subtitle = "Close the active session tab", Shortcut = "Ctrl+W", Badge = "ACTION", Execute = () => CloseTab_Click(this, new RoutedEventArgs()) },
             new() { Title = "SSH Tunnels...", Subtitle = "Manage port forwards on the active SSH tab", Shortcut = "Ctrl+Shift+T", Badge = "ACTION", Execute = () => Tunnels_Click(this, new RoutedEventArgs()) },
             new() { Title = "SFTP Browser...", Subtitle = "Browse files on the active SSH session", Shortcut = "Ctrl+Shift+F", Badge = "ACTION", Execute = () => SftpBrowser_Click(this, new RoutedEventArgs()) },
-            new() { Title = "Voice Command...", Subtitle = "Speak or type a command to send", Shortcut = "Ctrl+Shift+V", Badge = "ACTION", Execute = () => VoiceCommand_Click(this, new RoutedEventArgs()) },
+            new() { Title = "Voice Assistant", Subtitle = "Talk to OML Terminal in any language - it does the task on the device", Shortcut = "Ctrl+Shift+V", Badge = "ACTION", Execute = () => VoiceToggle_Click(this, new RoutedEventArgs()) },
             new() { Title = "Troubleshooting Workflows...", Subtitle = "Create or run a reviewed command sequence on the active session", Badge = "ACTION", Execute = () => Workflows_Click(this, new RoutedEventArgs()) },
             new() { Title = "Multi-Execution Bar", Subtitle = "Send one command to every connected tab", Shortcut = "Ctrl+Shift+M", Badge = "ACTION", Execute = () => MultiExec_Click(this, new RoutedEventArgs()) },
             new() { Title = _recorder is null ? "Start Recording Macro" : "Stop Recording Macro", Subtitle = "Record keystrokes on the active session as a macro", Shortcut = "Ctrl+Shift+R", Badge = "ACTION", Execute = () => Record_Click(this, new RoutedEventArgs()) },

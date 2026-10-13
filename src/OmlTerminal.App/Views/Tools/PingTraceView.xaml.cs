@@ -8,7 +8,7 @@ using OmlTerminal.Core.NetTools;
 
 namespace OmlTerminal.App.Views.Tools;
 
-public sealed partial class PingTraceView : UserControl, IToolView
+public sealed partial class PingTraceView : UserControl, IToolView, IVoiceTarget
 {
     private const int MaxOutputChars = 400_000;
     private readonly StringBuilder _log = new();
@@ -23,6 +23,12 @@ public sealed partial class PingTraceView : UserControl, IToolView
     {
         TargetBox.Text = host;
         ModeBox.SelectedIndex = mode;
+    }
+
+    public void RunFor(string target)
+    {
+        SetTarget(target);
+        if (target.Length > 0) Start_Click(this, new RoutedEventArgs());
     }
 
     private void Mode_SelectionChanged(object sender, SelectionChangedEventArgs e)
