@@ -45,6 +45,15 @@ public sealed class AppSettings
     public string VoiceGrammar { get; set; } = "";
     public bool VoiceHandsFree { get; set; }
 
+    /// <summary>Voice assistant: spoken language ("auto" detects it), speech model id (WhisperModel.Id),
+    /// which language model understands requests ("builtin", "server" = the Copilot endpoint, or "off" = exact commands
+    /// only), whether replies are spoken aloud, and whether changes wait for a yes/click.</summary>
+    public string VoiceLanguage { get; set; } = "auto";
+    public string VoiceSpeechModel { get; set; } = "";
+    public string VoiceBrain { get; set; } = "builtin";
+    public bool VoiceSpeakReplies { get; set; } = true;
+    public bool VoiceConfirmChanges { get; set; } = true;
+
     /// <summary>Set when the user declines the "install an X server?" offer, so it isn't shown on every launch.</summary>
     public bool XServerInstallDeclined { get; set; }
 

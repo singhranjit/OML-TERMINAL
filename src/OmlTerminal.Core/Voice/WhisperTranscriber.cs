@@ -35,6 +35,72 @@ public sealed partial class WhisperTranscriber : IDisposable
         _factory = WhisperFactory.FromPath(modelPath ?? ModelPath);
     }
 
+    public WhisperTranscriber(WhisperModel model) : this(PathFor(model)) { Model = model; }
+
+    /// <summary>The model this transcriber was opened with (English base for the legacy constructor).</summary>
+    public WhisperModel Model { get; } = WhisperModel.BaseEnglish;
+
+    // ---------- multilingual ----------
+
+    public static string PathFor(WhisperModel model) => Path.Combine(ModelDirectory, model.FileName);
+
+    public static bool IsInstalled(WhisperModel model) =>
+        File.Exists(PathFor(model)) && new FileInfo(PathFor(model)).Length > model.Bytes * 9 / 10;
+
+    /// <summary>The model to use: the one chosen in settings if it's downloaded, else the best one that is.</summary>
+    public static WhisperModel? BestInstalled(string? preferredId = null)
+    {
+        if (WhisperModel.All.FirstOrDefault(m => m.Id == preferredId) is { } chosen && IsInstalled(chosen)) return chosen;
+        return WhisperModel.All.FirstOrDefault(IsInstalled);
+    }
+
+    public static Task DownloadAsync(WhisperModel model, IProgress<long>? progress = null, CancellationToken ct = default) =>
+        Assistant.ModelDownloader.DownloadAsync(model.Url, PathFor(model), progress, ct);
+
+    /// <summary>
+    /// Any language, any accent: Whisper detects the language itself (or uses the one the engineer picked, which helps
+    /// heavy accents), writes what was said in that language - or, with <paramref name="translateToEnglish"/>, in
+    /// English, for the offline command grammar. Misheard network words in other languages are corrected afterwards
+    /// by the assistant, which sees the screen.
+    /// </summary>
+    public async Task<Transcript> RecognizeAsync(float[] samples, string language = "auto", bool translateToEnglish = false, CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            double seconds = samples.Length / 16000.0;
+            var builder = _factory.CreateBuilder()
+                .WithLanguage(string.IsNullOrWhiteSpace(language) ? "auto" : language)
+                .WithNoContext()
+                .WithGreedySamplingStrategy()
+                .WithThreads(Math.Clamp(Environment.ProcessorCount, 1, 8));
+            // The short-audio speed-up is reliable on the small models; the large ones hallucinate with a cut context.
+            if (!Model.Large) builder = builder.WithAudioContextSize(Math.Clamp((int)Math.Ceiling(seconds * 50) + 128, 256, 1500));
+            if (translateToEnglish) builder = builder.WithTranslate();
+            // The English network vocabulary hint helps English a lot, but pulls other languages towards English
+            // (Hindi came out as romanized gibberish with it), so it's only used when the language is English.
+            if (language == "en" || !Model.Multilingual) builder = builder.WithPrompt(NetworkPrompt);
+            await using var processor = builder.Build();
+            var sb = new StringBuilder();
+            string? lang = null;
+            await foreach (var segment in processor.ProcessAsync(samples, ct).ConfigureAwait(false))
+            {
+                sb.Append(segment.Text);
+                lang ??= segment.Language;
+            }
+            var code = string.IsNullOrWhiteSpace(lang) || lang == "auto" ? (language is { Length: > 0 } and not "auto" ? language : "en") : lang;
+            return new Transcript(Clean(sb.ToString()), code, LanguageName(code));
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>"hi" → "Hindi". Whisper reports ISO 639-1 codes (plus a few of its own, e.g. "haw", "yue").</summary>
+    public static string LanguageName(string code)
+    {
+        if (WhisperLanguages.Names.TryGetValue(code, out var name)) return name;
+        try { return System.Globalization.CultureInfo.GetCultureInfo(code).EnglishName; } catch { return code; }
+    }
+
     /// <summary>
     /// Whisper's encoder always processes a 30 s window (1500 audio frames), even for a 2 s command - most of the cost.
     /// Sizing the audio context to the utterance (50 frames per second, plus margin) makes short commands several
