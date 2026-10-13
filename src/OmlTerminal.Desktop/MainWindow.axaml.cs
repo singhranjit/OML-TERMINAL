@@ -77,6 +77,8 @@ public partial class MainWindow : Window
                     if (_vm.Sessions.FirstOrDefault(x => x.Id == id) is { } saved) Connect(saved, remember: false);
             StartBackupScheduler();
             if (!_vm.Settings.WelcomeShown && Environment.GetEnvironmentVariable("OML_OPEN_TOOL") is null) await ShowWelcomeAsync();
+            // OML_OPEN_VOICE=1 opens the voice assistant at startup (demos, screenshots, scripted tests).
+            if (Environment.GetEnvironmentVariable("OML_OPEN_VOICE") is { Length: > 0 }) ToggleVoicePanel(true);
             await CheckForUpdatesAsync(manual: false);
         };
     }

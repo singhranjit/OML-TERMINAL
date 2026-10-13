@@ -155,6 +155,8 @@ public sealed partial class MainWindow : Window
                 foreach (var id in _vm.Settings.WorkspaceSessionIds.ToList())
                     if (_vm.Sessions.FirstOrDefault(s => s.Id == id) is { } profile) OpenSession(profile);
             if (!_vm.Settings.WelcomeShown) await ShowWelcomeAsync();
+            // OML_OPEN_VOICE=1 opens the voice assistant at startup (demos, screenshots, scripted tests).
+            if (Environment.GetEnvironmentVariable("OML_OPEN_VOICE") is { Length: > 0 }) ToggleVoicePanel(true);
             await CheckForUpdatesAsync(manual: false);
         };
     }
