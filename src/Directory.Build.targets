@@ -1,0 +1,12 @@
+<Project>
+  <!-- The speech (Whisper) and language-model (llama.cpp) engines ship native libraries for every platform under
+       runtimes/. A published app only ever loads its own, so drop the rest (saves ~200 MB per install). -->
+  <Target Name="TrimForeignNativeRuntimes" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' != '' And Exists('$(PublishDir)runtimes')">
+    <ItemGroup>
+      <_OmlRuntimeDirs Include="$([System.IO.Directory]::GetDirectories('$(PublishDir)runtimes'))" />
+      <_OmlForeignRuntimeDirs Include="@(_OmlRuntimeDirs)" Condition="'%(Filename)%(Extension)' != '$(RuntimeIdentifier)'" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_OmlForeignRuntimeDirs)" />
+    <Delete Files="$(PublishDir)ggml-metal.metal" />
+  </Target>
+</Project>
