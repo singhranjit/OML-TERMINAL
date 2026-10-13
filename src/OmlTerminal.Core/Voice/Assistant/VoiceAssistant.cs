@@ -241,7 +241,8 @@ public sealed partial class VoiceAssistant
 
         if (plan.Next == VoiceNext.Ask || fixedActions.Count == 0)
         {
-            if (plan.Say.Length > 0) Raise(VoiceEventKind.Say, plan.Say, speak: true);
+            // For a question still being looked into, "Checking..." was already shown as status - the real answer follows.
+            if (plan.Say.Length > 0 && plan.Next != VoiceNext.Read) Raise(VoiceEventKind.Say, plan.Say, speak: true);
             return new Outcome(ran, true, null);
         }
 

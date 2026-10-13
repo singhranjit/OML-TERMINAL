@@ -922,6 +922,7 @@ public partial class MainWindow : Window
         }
         foreach (var tab in Tabs.Items.OfType<TabItem>().ToList()) CloseTab(tab);
         try { Core.Snmp.TrafficGrapher.Shared.Dispose(); } catch { }
+        try { DisposeVoice(); } catch { }
         _schedulerCts.Cancel();
         base.OnClosing(e);
     }
@@ -1186,6 +1187,8 @@ public partial class MainWindow : Window
             (true, Key.B) => () => ToggleSidebar_Click(null, e),
             (true, Key.S) => () => Sftp_Click(null, e),
             (true, Key.M) => () => MultiExec_Click(null, e),
+            (true, Key.A) => () => ToggleVoicePanel(),
+            (true, Key.Space) => () => VoiceMic_Click(null, e),
             (true, Key.E) => () => SplitRight_Click(null, e),
             (true, Key.O) => () => SplitDown_Click(null, e),
             (true, Key.Q) => Close,

@@ -66,7 +66,7 @@ internal sealed class RangeBar : Control
     }
 }
 
-public sealed class PathTraceTool : UserControl, IToolView
+public sealed class PathTraceTool : UserControl, IToolView, IVoiceTarget
 {
     private const double NodeW = 168, NodeH = 86, LanePitch = 112, LeftPad = 18, TopPad = 22;
     private double ColPitch => _mode == 1 ? 258 : 240; // device mode carries interface labels between columns
@@ -263,6 +263,12 @@ public sealed class PathTraceTool : UserControl, IToolView
 
     /// <summary>Prefills the destination (e.g. "trace this host" from another tool).</summary>
     public void SetTarget(string host) { SetMode(0); _target.Text = host; }
+
+    public void RunFor(string target)
+    {
+        SetTarget(target);
+        if (target.Length > 0 && _startButtons[0].IsEnabled) _ = PcStartAsync();
+    }
 
     public void Shutdown()
     {

@@ -34,6 +34,12 @@ public sealed class ToolContext
         Sessions().Where(s => s.IsSshBased).OrderBy(s => s.Display, StringComparer.OrdinalIgnoreCase).ToList();
 }
 
+/// <summary>A tool the voice assistant can point at a host and start ("trace to 8.8.8.8").</summary>
+public interface IVoiceTarget
+{
+    void RunFor(string target);
+}
+
 public sealed record ToolDescriptor(string Id, string Title, string Subtitle, string Category, Func<ToolContext, Control> Create);
 
 public static class ToolCatalog

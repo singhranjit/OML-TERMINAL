@@ -9,7 +9,7 @@ using OmlTerminal.Core.NetTools;
 
 namespace OmlTerminal.Desktop.Tools;
 
-public sealed class PingTraceTool : UserControl, IToolView
+public sealed class PingTraceTool : UserControl, IToolView, IVoiceTarget
 {
     private const int MaxOutputChars = 400_000;
     private readonly StringBuilder _log = new();
@@ -52,6 +52,12 @@ public sealed class PingTraceTool : UserControl, IToolView
     {
         _target.Text = host;
         _mode.SelectedIndex = mode;
+    }
+
+    public void RunFor(string target)
+    {
+        SetTarget(target);
+        if (target.Length > 0) _ = StartAsync();
     }
 
     private void ModeChanged()

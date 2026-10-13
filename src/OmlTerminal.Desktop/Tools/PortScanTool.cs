@@ -23,7 +23,7 @@ public sealed class PortRow(PortProbeResult r)
     };
 }
 
-public sealed class PortScanTool : UserControl, IToolView
+public sealed class PortScanTool : UserControl, IToolView, IVoiceTarget
 {
     private readonly List<PortRow> _all = new();
     private readonly ObservableCollection<PortRow> _shown = new();
@@ -67,6 +67,9 @@ public sealed class PortScanTool : UserControl, IToolView
 
     /// <summary>Prefills the target, e.g. from a session's context menu.</summary>
     public void SetTarget(string host) => _host.Text = host;
+
+    /// <summary>Scanning is intrusive, so voice only fills in the host - the engineer presses Scan.</summary>
+    public void RunFor(string target) => SetTarget(target);
 
     private async Task ScanAsync()
     {

@@ -227,10 +227,18 @@ public sealed class VoiceSpeaker : IDisposable
 
     public bool Enabled { get; set; } = true;
 
+    private volatile bool _speaking;
+    private DateTime _quietSince = DateTime.MinValue;
+
+    /// <summary>True while a reply is being spoken and for a moment after - so the microphone hearing the
+    /// assistant's own voice isn't taken as a new request.</summary>
+    public bool IsSpeaking => _speaking || DateTime.UtcNow - _quietSince < TimeSpan.FromMilliseconds(700);
+
     public void Speak(string text, string languageCode)
     {
         if (!Enabled || string.IsNullOrWhiteSpace(text)) return;
         Stop();
+        _speaking = true;
         _ = Task.Run(() =>
         {
             try
@@ -249,6 +257,11 @@ public sealed class VoiceSpeaker : IDisposable
                 p?.WaitForExit();
             }
             catch { /* speaking is a nicety - never break the assistant over it */ }
+            finally
+            {
+                _speaking = false;
+                _quietSince = DateTime.UtcNow;
+            }
         });
     }
 

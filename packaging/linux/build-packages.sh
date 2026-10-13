@@ -51,7 +51,7 @@ Section: net
 Priority: optional
 Installed-Size: $SIZE
 Depends: libc6, libgcc-s1, libstdc++6, zlib1g, libfontconfig1, libx11-6, libice6, libsm6, libicu74 | libicu72 | libicu71 | libicu70 | libicu67 | libicu66 | libicu-dev
-Recommends: libcap2-bin, libpcap0.8, iw, xdg-utils
+Recommends: libcap2-bin, libpcap0.8, iw, xdg-utils, fonts-noto-core, fonts-noto-cjk, pulseaudio-utils | pipewire-bin | alsa-utils, espeak-ng
 Suggests: tshark, network-manager
 Description: SSH, Telnet, serial and local shells with a network engineer's toolkit
  OML Terminal is a terminal for network engineers: SSH, Telnet, serial and

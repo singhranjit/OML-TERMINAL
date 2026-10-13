@@ -69,6 +69,8 @@ public static class VoicePlanner
         - Fix misheard words using the screen and networking sense ("the land 20" = VLAN 20, "gig zero slash one" =
           GigabitEthernet0/1, "ten dot one dot one dot one" = 10.1.1.1).
         - Questions need read-only show commands and NEXT: read; then answer briefly from the output.
+        - Never guess names you can't see. If "port 2" or "the uplink" isn't identifiable on the screen, first list
+          the interfaces (e.g. "show interfaces status" or "show ip interface brief") with NEXT: read.
         - Don't save the configuration unless asked; after a change, offer to save it.
         - "undo that" = reverse your last change.
         - Only use sessions and tools from the lists. If the words are just chat or make no sense, only SAY.
@@ -80,6 +82,11 @@ public static class VoicePlanner
         SAY: Checking GigabitEthernet1/0/2.
         RUN: show interfaces GigabitEthernet1/0/2
         RUN: show logging | include 1/0/2
+        NEXT: read
+
+        Engineer: "which ports are down?"
+        SAY: Checking the ports.
+        RUN: show interfaces status
         NEXT: read
 
         Engineer: "put port 5 in vlan 10 and enable it"
