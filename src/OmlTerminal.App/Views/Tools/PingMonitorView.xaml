@@ -76,8 +76,8 @@
 
         <Grid Grid.Row="4" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="420" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="1*" MinWidth="220" MaxWidth="420" />
             </Grid.ColumnDefinitions>
             <Border Style="{StaticResource ToolCardStyle}">
                 <Grid RowSpacing="4">

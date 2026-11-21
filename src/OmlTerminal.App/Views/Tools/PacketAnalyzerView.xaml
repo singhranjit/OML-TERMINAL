@@ -88,8 +88,8 @@
 
         <Grid Grid.Row="3" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="400" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="1*" MinWidth="220" MaxWidth="400" />
             </Grid.ColumnDefinitions>
 
             <Grid RowSpacing="12">

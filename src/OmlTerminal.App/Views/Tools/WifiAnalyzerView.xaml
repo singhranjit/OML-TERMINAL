@@ -208,8 +208,8 @@
         <!-- Site survey -->
         <Grid x:Name="SurveyPage" Grid.Row="3" ColumnSpacing="12" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="1*" MinWidth="220" MaxWidth="300" />
             </Grid.ColumnDefinitions>
             <Border Style="{StaticResource ToolCardStyle}" Padding="0">
                 <Grid>

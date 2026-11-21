@@ -6,6 +6,10 @@ public sealed class AppSettings
 {
     public string FontFamily { get; set; } = "Cascadia Mono";
     public double FontSize { get; set; } = 14;
+    /// <summary>Width of the session/tools sidebar in DIPs as the user dragged it; 0 = default.</summary>
+    public double SidebarWidth { get; set; }
+    /// <summary>True when the user collapsed the sidebar (Ctrl+B / double-click the divider).</summary>
+    public bool SidebarHidden { get; set; }
     public int ScrollbackLines { get; set; } = 5000;
     public string? PlinkPath { get; set; }
     public bool HighlightKeywords { get; set; } = true;

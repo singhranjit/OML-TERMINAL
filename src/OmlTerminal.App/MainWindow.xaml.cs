@@ -76,11 +76,82 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _backupSchedulerCts = new();
     private ToolContext _toolContext = null!;
 
+    /// <summary>First-run window size: 1400x860 on a roomy monitor, but never more than ~92% of the screen's work
+    /// area (laptops at 125-150% scaling are effectively 1280x720 or smaller), centred, with a floor so the
+    /// layout can't be dragged into nonsense.</summary>
+    private void SizeToScreen()
+    {
+        try
+        {
+            var area = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
+            double scale = Content?.XamlRoot?.RasterizationScale ?? 0;
+            if (scale <= 0) { var dpi = GetDpiForSystem(); scale = dpi <= 0 ? 1.0 : dpi / 96.0; }
+            int w = (int)Math.Min(1400 * scale, area.Width * 0.92);
+            int h = (int)Math.Min(860 * scale, area.Height * 0.92);
+            w = Math.Max(w, Math.Min((int)(720 * scale), area.Width));
+            h = Math.Max(h, Math.Min((int)(480 * scale), area.Height));
+            AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
+            AppWindow.Move(new Windows.Graphics.PointInt32(area.X + (area.Width - w) / 2, area.Y + (area.Height - h) / 2));
+            if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op)
+            {
+                op.PreferredMinimumWidth = (int)(640 * scale);
+                op.PreferredMinimumHeight = (int)(420 * scale);
+            }
+        }
+        catch { AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 760)); }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern uint GetDpiForSystem();
+
+    // ---- Sidebar: draggable divider like MobaXterm / SecureCRT. The width is the user's and is remembered;
+    // the window only clamps it so the tab area always keeps room. ----
+    private const double SidebarMin = 170, SidebarDefault = 290, ContentMin = 300;
+    private double _sidebarWidth;
+    private bool _sidebarHidden;
+
+    private double SidebarMax() => Math.Max(SidebarMin, Math.Min(640, RootGrid.ActualWidth - ContentMin - 30));
+
+    private void ApplySidebar()
+    {
+        double w = _sidebarWidth > 0 ? _sidebarWidth : SidebarDefault;
+        w = Math.Clamp(w, SidebarMin, SidebarMax());
+        SidebarPanel.Visibility = _sidebarHidden ? Visibility.Collapsed : Visibility.Visible;
+        SidebarColumn.Width = new GridLength(_sidebarHidden ? 0 : w);
+        SplitterColumn.Width = new GridLength(_sidebarHidden ? 6 : 10);
+    }
+
+    private void ToggleSidebar()
+    {
+        _sidebarHidden = !_sidebarHidden;
+        ApplySidebar();
+        _vm.Settings.SidebarHidden = _sidebarHidden; _vm.SaveSettings();
+    }
+
+    private void ToggleSidebar_Click(object sender, RoutedEventArgs e) => ToggleSidebar();
+    private void ToggleSidebarAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { ToggleSidebar(); args.Handled = true; }
+
+    private void InitSidebar()
+    {
+        _sidebarWidth = _vm.Settings.SidebarWidth;
+        _sidebarHidden = _vm.Settings.SidebarHidden;
+        ApplySidebar();
+        RootGrid.SizeChanged += (_, _) => ApplySidebar();
+        SidebarSplitter.Dragged += d =>
+        {
+            if (_sidebarHidden) { _sidebarHidden = false; _sidebarWidth = SidebarMin; }
+            else _sidebarWidth = Math.Clamp((_sidebarWidth > 0 ? _sidebarWidth : SidebarDefault) + d, SidebarMin, SidebarMax());
+            ApplySidebar();
+        };
+        SidebarSplitter.DragCompleted += () => { _vm.Settings.SidebarWidth = _sidebarWidth; _vm.Settings.SidebarHidden = _sidebarHidden; _vm.SaveSettings(); };
+        SidebarSplitter.Toggled += ToggleSidebar;
+    }
+
     public MainWindow()
     {
         InitializeComponent();
         SystemBackdrop = new MicaBackdrop { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt };
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1400, 860));
+        SizeToScreen();
+        InitSidebar();
         // The exe's embedded icon (ApplicationIcon in the csproj) covers File Explorer/shortcuts, but an
         // unpackaged WinUI3 app's own taskbar/Alt-Tab/title-bar icon needs this set explicitly at runtime too.
         try { AppWindow.SetIcon("Assets/AppIcon.ico"); } catch { }

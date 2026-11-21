@@ -2,6 +2,16 @@
 
 All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://omllabs.com/downloads.html).
 
+## 1.1.1 - 2026-11-22
+
+### Changed
+- **Responsive layout (Windows):** OML Terminal now works on laptops and small or scaled displays, not just 1920x1080.
+  - The window opens sized to your screen (at most ~92% of the work area), centred, with a sensible minimum size.
+  - The session sidebar has a draggable divider, like MobaXterm and SecureCRT. Drag to resize; double-click the divider
+    or press Ctrl+B (View > Show / Hide Sidebar) to hide or show it. Width and state are remembered.
+  - Tool tabs (Host Monitor, Packet Analyzer, Password Manager, Topology, Visual Trace and others) shrink their side
+    panels on narrow windows instead of running off-screen; the Home page and New Session dialog scale to fit.
+
 ## 1.1.0 - 2026-10-13
 
 ### Added

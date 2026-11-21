@@ -6,6 +6,7 @@
     xmlns:vm="using:OmlTerminal.App.ViewModels"
     xmlns:views="using:OmlTerminal.App.Views"
     xmlns:tools="using:OmlTerminal.App.Views.Tools"
+    xmlns:ctl="using:OmlTerminal.App.Controls"
     Title="OML Terminal">
 
     <Grid x:Name="RootGrid" Background="{StaticResource AppBackgroundBrush}">
@@ -20,6 +21,7 @@
             <KeyboardAccelerator Modifiers="Control" Key="K" Invoked="PaletteAccelerator_Invoked" />
             <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="FindAccelerator_Invoked" />
             <KeyboardAccelerator Modifiers="Control,Shift" Key="G" Invoked="GlobalSearchAccelerator_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="B" Invoked="ToggleSidebarAccelerator_Invoked" />
         </Grid.KeyboardAccelerators>
 
         <!-- Custom title bar: brand + menu, empty middle is the drag region -->
@@ -137,6 +139,8 @@
                     <MenuFlyoutItem x:Name="XServerMenuItem" Text="Start X Server" Click="XServer_Click" />
                 </MenuBarItem>
                 <MenuBarItem Title="View">
+                    <MenuFlyoutItem Text="Show / Hide Sidebar" Click="ToggleSidebar_Click" />
+                    <MenuFlyoutSeparator />
                     <MenuFlyoutItem x:Name="ZoomInItem" Text="Zoom In" Click="ZoomIn_Click">
                         <MenuFlyoutItem.KeyboardAccelerators>
                             <KeyboardAccelerator Modifiers="Control" Key="Add" />
@@ -183,14 +187,15 @@
             </ScrollViewer>
         </Border>
 
-        <Grid Grid.Row="2" Padding="10,0,10,10" ColumnSpacing="10">
+        <Grid Grid.Row="2" Padding="10,0,10,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="290" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="SidebarColumn" Width="290" />
+                <ColumnDefinition x:Name="SplitterColumn" Width="10" />
+                <ColumnDefinition Width="*" MinWidth="260" />
             </Grid.ColumnDefinitions>
 
             <!-- Sidebar -->
-            <Border Grid.Column="0" CornerRadius="{StaticResource CardRadius}" Background="{StaticResource PanelBrush}"
+            <Border x:Name="SidebarPanel" Grid.Column="0" CornerRadius="{StaticResource CardRadius}" Background="{StaticResource PanelBrush}"
                     BorderBrush="{StaticResource GlowBorderBrush}" BorderThickness="1" Padding="12">
               <Grid RowSpacing="10">
                 <Grid.RowDefinitions>
@@ -303,8 +308,10 @@
               </Grid>
             </Border>
 
+            <ctl:ColumnSplitter x:Name="SidebarSplitter" Grid.Column="1" />
+
             <!-- Tabs, and the voice assistant docked beside them -->
-            <Grid Grid.Column="1">
+            <Grid Grid.Column="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition x:Name="VoiceColumn" Width="0" />

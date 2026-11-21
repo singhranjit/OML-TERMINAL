@@ -14,8 +14,8 @@
         <x:Double x:Key="ContentDialogMaxHeight">900</x:Double>
     </ContentDialog.Resources>
 
-    <ScrollViewer MaxHeight="660" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="14" Width="780">
+    <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="14" MaxWidth="780" MinWidth="420">
             <InfoBar x:Name="ErrorBar" Severity="Error" IsOpen="False" IsClosable="False" Title="Cannot save" />
 
             <!-- Session type tiles (MobaXterm-style), built in code so each carries its protocol. -->

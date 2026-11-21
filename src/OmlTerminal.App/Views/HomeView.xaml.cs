@@ -28,6 +28,7 @@ public sealed partial class HomeView : UserControl
 
     public HomeView()
     {
+        SizeChanged += (_, e) => AdaptToWidth(e.NewSize.Width);
         InitializeComponent();
         ToolGrid.ItemsSource = ToolCatalog.All;
         foreach (var (label, glyph, kind) in Tiles) SessionTiles.Items.Add(Tile(label, glyph, kind));
@@ -85,5 +86,14 @@ public sealed partial class HomeView : UserControl
     private void RecentList_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is SessionProfile p) SessionChosen?.Invoke(p);
+    }
+
+    /// <summary>Scales the hero and padding to the tab's width so a narrow panel never clips the title or pushes the page sideways.</summary>
+    private void AdaptToWidth(double w)
+    {
+        HeroTitle.FontSize = w >= 760 ? 52 : w >= 600 ? 40 : w >= 440 ? 32 : 26;
+        HeroLogo.Visibility = w >= 520 ? Visibility.Visible : Visibility.Collapsed;
+        double pad = w >= 600 ? 32 : w >= 420 ? 20 : 12;
+        HomeColumn.Padding = new Thickness(pad, w >= 600 ? 40 : 24, pad, 24);
     }
 }

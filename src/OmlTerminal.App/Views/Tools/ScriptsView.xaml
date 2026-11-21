@@ -19,8 +19,8 @@
 
         <Grid Grid.Row="1" ColumnSpacing="14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="1*" MinWidth="220" MaxWidth="300" />
+                <ColumnDefinition Width="3*" />
             </Grid.ColumnDefinitions>
 
             <!-- Script list -->

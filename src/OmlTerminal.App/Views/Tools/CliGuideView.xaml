@@ -21,7 +21,7 @@
         <Border Grid.Row="1" Style="{StaticResource ToolCardStyle}" Padding="14,10">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="1*" MinWidth="170" MaxWidth="260" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
