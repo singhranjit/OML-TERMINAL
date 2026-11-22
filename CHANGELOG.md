@@ -2,6 +2,13 @@
 
 All notable changes to OML Terminal. Downloads: [omllabs.com/downloads](https://omllabs.com/downloads.html).
 
+## 1.1.2 - 2026-11-23
+
+### Fixed
+- **Layout and rendering on small windows (Windows):** tool tabs now keep their designed layout and scroll when the window is smaller than that, instead of fields overlapping, columns collapsing and buttons running off the edge.
+- The X-server button no longer overlaps the window buttons on narrow windows.
+- The sidebar defaults to about 30% of the window (210-290 px) and its labels no longer clip at the minimum width.
+
 ## 1.1.1 - 2026-11-22
 
 ### Changed

@@ -105,7 +105,7 @@ public sealed partial class MainWindow : Window
 
     // ---- Sidebar: draggable divider like MobaXterm / SecureCRT. The width is the user's and is remembered;
     // the window only clamps it so the tab area always keeps room. ----
-    private const double SidebarMin = 170, SidebarDefault = 290, ContentMin = 300;
+    private const double SidebarMin = 200, SidebarDefault = 290, ContentMin = 300;
     private double _sidebarWidth;
     private bool _sidebarHidden;
 
@@ -113,7 +113,8 @@ public sealed partial class MainWindow : Window
 
     private void ApplySidebar()
     {
-        double w = _sidebarWidth > 0 ? _sidebarWidth : SidebarDefault;
+        // No width chosen by the user yet: scale with the window (about 30%, 210-290 px) so small windows keep room for the tabs.
+        double w = _sidebarWidth > 0 ? _sidebarWidth : Math.Clamp(RootGrid.ActualWidth * 0.30, 210, SidebarDefault);
         w = Math.Clamp(w, SidebarMin, SidebarMax());
         SidebarPanel.Visibility = _sidebarHidden ? Visibility.Collapsed : Visibility.Visible;
         SidebarColumn.Width = new GridLength(_sidebarHidden ? 0 : w);
@@ -135,11 +136,11 @@ public sealed partial class MainWindow : Window
         _sidebarWidth = _vm.Settings.SidebarWidth;
         _sidebarHidden = _vm.Settings.SidebarHidden;
         ApplySidebar();
-        RootGrid.SizeChanged += (_, _) => ApplySidebar();
+        RootGrid.SizeChanged += (_, _) => { ApplySidebar(); XServerButton.Visibility = RootGrid.ActualWidth < 860 ? Visibility.Collapsed : Visibility.Visible; };
         SidebarSplitter.Dragged += d =>
         {
             if (_sidebarHidden) { _sidebarHidden = false; _sidebarWidth = SidebarMin; }
-            else _sidebarWidth = Math.Clamp((_sidebarWidth > 0 ? _sidebarWidth : SidebarDefault) + d, SidebarMin, SidebarMax());
+            else _sidebarWidth = Math.Clamp((_sidebarWidth > 0 ? _sidebarWidth : SidebarColumn.Width.Value) + d, SidebarMin, SidebarMax());
             ApplySidebar();
         };
         SidebarSplitter.DragCompleted += () => { _vm.Settings.SidebarWidth = _sidebarWidth; _vm.Settings.SidebarHidden = _sidebarHidden; _vm.SaveSettings(); };
@@ -2187,12 +2188,12 @@ public sealed partial class MainWindow : Window
         if (existing is not null)
         {
             Tabs.SelectedItem = existing;
-            if (existing.Content is UserControl v) configure?.Invoke(v);
+            if (existing.Content is Controls.ToolScroller { Tool: var v }) configure?.Invoke(v);
             return;
         }
         var view = descriptor.Create(_toolContext);
         configure?.Invoke(view);
-        var item = new TabViewItem { Header = descriptor.Title, Content = view, Tag = descriptor, IconSource = new FontIconSource { Glyph = descriptor.Glyph } };
+        var item = new TabViewItem { Header = descriptor.Title, Content = new Controls.ToolScroller(view), Tag = descriptor, IconSource = new FontIconSource { Glyph = descriptor.Glyph } };
         Tabs.TabItems.Add(item);
         Tabs.SelectedItem = item;
     }
@@ -2462,7 +2463,7 @@ public sealed partial class MainWindow : Window
         SaveWorkspace();
         _connectedTabs.Remove(item);
         _failedTabs.Remove(item);
-        var content = item.Content;
+        var content = item.Content is Controls.ToolScroller ts ? ts.Tool : item.Content;
         item.Content = null;
         switch (content)
         {
